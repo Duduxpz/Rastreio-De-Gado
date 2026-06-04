@@ -10,7 +10,7 @@ export function LoadingState({
   return (
     <div className="flex flex-col items-center justify-center py-12">
       <Spinner size="lg" />
-      <p className="mt-4 text-gray-600">{message}</p>
+      <p className="mt-4 text-primary-200">{message}</p>
     </div>
   );
 }

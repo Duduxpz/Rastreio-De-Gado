@@ -12,10 +12,10 @@ export function Card({
   variant = 'default',
 }: CardProps) {
   const variants = {
-    default: 'bg-white rounded-lg shadow',
+    default: 'bg-primary-600 rounded-lg shadow',
     elevated:
-      'bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow',
-    bordered: 'bg-white rounded-lg border border-gray-200',
+      'bg-primary-600 rounded-lg shadow-lg hover:shadow-xl transition-shadow',
+    bordered: 'bg-primary-600 rounded-lg border border-primary-700',
   };
 
   return (

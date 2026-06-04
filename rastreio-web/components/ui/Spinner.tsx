@@ -11,8 +11,8 @@ export function Spinner({ size = 'md', color = 'primary' }: SpinnerProps) {
   };
 
   const colorClasses = {
-    primary: 'border-primary-500 border-t-transparent',
-    gray: 'border-gray-300 border-t-gray-600',
+    primary: 'border-primary-300 border-t-transparent',
+    gray: 'border-primary-400 border-t-primary-100',
   };
 
   return (
