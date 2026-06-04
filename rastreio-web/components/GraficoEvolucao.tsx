@@ -17,13 +17,16 @@ export function GraficoEvolucao({
   return (
     <ResponsiveContainer width="100%" height={240}>
       <LineChart data={dados}>
-        <XAxis dataKey="data" tick={{ fontSize: 12 }} />
-        <YAxis unit="kg" tick={{ fontSize: 12 }} />
-        <Tooltip formatter={(v) => [`${v} kg`, 'Peso']} />
+        <XAxis dataKey="data" tick={{ fontSize: 12, fill: '#86EFAC' }} />
+        <YAxis unit="kg" tick={{ fontSize: 12, fill: '#86EFAC' }} />
+        <Tooltip 
+          formatter={(v) => [`${v} kg`, 'Peso']} 
+          contentStyle={{ backgroundColor: '#112318', borderColor: '#1E3D28', color: '#F0FDF4' }} 
+        />
         <Line
           type="monotone"
           dataKey="peso"
-          stroke="#1D9E75"
+          stroke="#22C55E"
           strokeWidth={2}
           dot={false}
         />

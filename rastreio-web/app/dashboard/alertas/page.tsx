@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
-import type { Vacinacao, Animal } from '@/types';
+import type { Animal } from '@/types';
 
 interface AlertaItem {
   tipo: 'vacinacao' | 'saude' | 'peso';
