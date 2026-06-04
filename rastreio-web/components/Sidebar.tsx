@@ -1,20 +1,14 @@
 'use client';
-import {
-    Bell,
-    ChevronRight,
-    Cow,
-    FileText,
-    LayoutDashboard,
-    Scale,
-    Settings,
-    Syringe
-} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  LayoutDashboard, Sprout, Syringe, Scale,
+  FileText, Bell, Settings, ChevronRight
+} from 'lucide-react';
 
 const nav = [
   { href: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard'   },
-  { href: '/dashboard/animais',   icon: Cow,             label: 'Animais'     },
+  { href: '/dashboard/animais',       icon: Sprout,             label: 'Animais'     },
   { href: '/dashboard/vacinacoes',icon: Syringe,         label: 'Vacinações'  },
   { href: '/dashboard/pesagens',  icon: Scale,           label: 'Pesagens'    },
   { href: '/dashboard/relatorios',icon: FileText,        label: 'Relatórios'  },
