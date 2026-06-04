@@ -5,11 +5,11 @@ interface BadgeProps {
 
 export function Badge({ label, variant = 'neutral' }: BadgeProps) {
   const variants = {
-    success: 'bg-green-100 text-green-800',
-    warning: 'bg-yellow-100 text-yellow-800',
-    danger: 'bg-red-100 text-red-800',
-    info: 'bg-blue-100 text-blue-800',
-    neutral: 'bg-gray-100 text-gray-800',
+    success: 'bg-green-400 text-green-900',
+    warning: 'bg-yellow-400 text-yellow-900',
+    danger: 'bg-red-400 text-red-900',
+    info: 'bg-blue-400 text-blue-900',
+    neutral: 'bg-primary-300 text-primary-900',
   };
 
   return (

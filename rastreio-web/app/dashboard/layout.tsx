@@ -40,7 +40,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-primary-500">
       {/* Sidebar */}
       <Sidebar />
 

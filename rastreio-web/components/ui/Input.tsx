@@ -18,23 +18,23 @@ export function Input({
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-primary-100 mb-2">
           {label}
         </label>
       )}
       <div className="relative">
         {icon && (
-          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-primary-300">
             {icon}
           </div>
         )}
         <input
           className={`
-            w-full px-4 py-2 ${icon ? 'pl-10' : ''} rounded-lg border
+            w-full px-4 py-2 ${icon ? 'pl-10' : ''} rounded-lg border bg-primary-700 text-white placeholder-primary-300
             ${
               error
-                ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                : 'border-gray-300 focus:border-primary-500 focus:ring-primary-500'
+                ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                : 'border-primary-600 focus:border-primary-400 focus:ring-primary-400'
             }
             focus:outline-none focus:ring-2 focus:ring-offset-0
             transition-colors
@@ -43,8 +43,8 @@ export function Input({
           {...props}
         />
       </div>
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-      {hint && !error && <p className="mt-1 text-sm text-gray-500">{hint}</p>}
+      {error && <p className="mt-1 text-sm text-red-300">{error}</p>}
+      {hint && !error && <p className="mt-1 text-sm text-primary-300">{hint}</p>}
     </div>
   );
 }

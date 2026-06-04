@@ -20,7 +20,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:pt-20 md:bg-gray-900 md:text-white">
+    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:pt-20 md:bg-primary-700 md:text-white">
       <nav className="flex-1 px-4 py-6 space-y-2">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
@@ -30,8 +30,8 @@ export function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive
-                  ? 'bg-primary-500 text-white'
-                  : 'text-gray-300 hover:bg-gray-800'
+                  ? 'bg-primary-400 text-primary-900 font-semibold'
+                  : 'text-primary-100 hover:bg-primary-600'
               }`}
             >
               <span className="text-xl">{item.icon}</span>

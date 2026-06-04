@@ -1,4 +1,18 @@
+import React from 'react'; // CORRIGIDO: Adicionar import do React para usar React.memo
 import { Card } from './ui/Card';
+
+// CORRIGIDO: Mover constantes para fora do componente
+const TREND_COLORS = {
+  up: 'text-green-600',
+  down: 'text-red-600',
+  stable: 'text-gray-600',
+} as const;
+
+const TREND_ICONS = {
+  up: '↑',
+  down: '↓',
+  stable: '→',
+} as const;
 
 interface StatCardProps {
   label: string;
@@ -8,25 +22,14 @@ interface StatCardProps {
   trend?: 'up' | 'down' | 'stable';
 }
 
-export function StatCard({
+// CORRIGIDO: Envolver componente em React.memo
+export const StatCard = React.memo(function StatCard({
   label,
   value,
   icon,
   delta,
   trend = 'stable',
 }: StatCardProps) {
-  const trendColors = {
-    up: 'text-green-600',
-    down: 'text-red-600',
-    stable: 'text-gray-600',
-  };
-
-  const trendIcons = {
-    up: '↑',
-    down: '↓',
-    stable: '→',
-  };
-
   return (
     <Card className="p-6">
       <div className="flex items-start justify-between">
@@ -42,10 +45,10 @@ export function StatCard({
         {icon && <div className="text-3xl">{icon}</div>}
       </div>
       {trend && (
-        <div className={`mt-4 text-sm ${trendColors[trend]} font-medium`}>
-          {trendIcons[trend]} {trend === 'up' ? 'Aumentando' : trend === 'down' ? 'Diminuindo' : 'Estável'}
+        <div className={`mt-4 text-sm ${TREND_COLORS[trend]} font-medium`}>
+          {TREND_ICONS[trend]} {trend === 'up' ? 'Aumentando' : trend === 'down' ? 'Diminuindo' : 'Estável'}
         </div>
       )}
     </Card>
   );
-}
+});
