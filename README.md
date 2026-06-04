@@ -71,3 +71,4 @@ npm start
 - Web: Vercel
 - Mobile: Expo EAS
 # Pecuaria
+# Pecuaria
