@@ -19,10 +19,10 @@ export function Button({
     'inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variants = {
-    primary: 'bg-cta-DEFAULT text-text-inverse hover:bg-cta-light active:bg-cta-dim font-semibold shadow-[0_2px_12px_rgba(249,115,22,0.3)]',
+    primary: 'bg-[#FF6A00] text-white hover:bg-[#FF8F3C] active:bg-[#E85D00] font-semibold shadow-[0_4px_16px_rgba(255,106,0,0.5)]',
     secondary:
-      'bg-bg-elevated text-text-primary hover:bg-bg-border active:bg-bg-border border border-bg-border',
-    danger: 'bg-danger-DEFAULT text-text-inverse hover:bg-danger-DEFAULT/90 active:bg-danger-DEFAULT/80',
+      'bg-bg-elevated text-white hover:bg-bg-border active:bg-bg-border border border-bg-border',
+    danger: 'bg-red-500 text-white hover:bg-red-400 active:bg-red-600',
     ghost: 'text-text-secondary hover:bg-bg-elevated active:bg-bg-border',
   };
 
