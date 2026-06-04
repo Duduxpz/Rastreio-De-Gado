@@ -135,7 +135,7 @@ export default function PesagensPage() {
                 label: 'Animal',
                 render: (_, row) =>
                   row.animal ? (
-                    <span className="font-semibold">
+                    <span className="font-semibold text-text-primary">
                       Brinco {row.animal.brinco}
                     </span>
                   ) : (
@@ -152,7 +152,7 @@ export default function PesagensPage() {
                 key: 'peso',
                 label: 'Peso',
                 render: (value) => (
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-text-primary">
                     {value} kg
                   </span>
                 ),
@@ -184,7 +184,7 @@ export default function PesagensPage() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
               Animal *
             </label>
             <select
@@ -192,7 +192,7 @@ export default function PesagensPage() {
               onChange={(e) =>
                 setForm({ ...form, animal_id: e.target.value })
               }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
             >
               <option value="">Selecione um animal</option>
               {animaisOpcoes.map((a) => (

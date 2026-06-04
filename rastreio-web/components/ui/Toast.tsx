@@ -44,20 +44,20 @@ function ToastItem({
   }, [toast.id, toast.duration, onRemove]);
 
   const colors = {
-    success: 'bg-green-500',
-    error: 'bg-red-500',
-    info: 'bg-blue-500',
-    warning: 'bg-yellow-500',
+    success: 'bg-success-DEFAULT',
+    error: 'bg-danger-DEFAULT',
+    info: 'bg-info-DEFAULT',
+    warning: 'bg-warning-DEFAULT',
   };
 
   return (
     <div
-      className={`${colors[toast.type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-4 max-w-sm`}
+      className={`${colors[toast.type]} text-text-inverse px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-4 max-w-sm`}
     >
       <span>{toast.message}</span>
       <button
         onClick={() => onRemove(toast.id)}
-        className="text-white hover:opacity-75"
+        className="text-text-inverse hover:opacity-75"
       >
         ✕
       </button>

@@ -136,7 +136,7 @@ export default function AlertasPage() {
 
       {/* Filtro */}
       <Card className="p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text-secondary mb-2">
           Filtrar por Severidade
         </label>
         <div className="flex gap-2">
@@ -172,10 +172,10 @@ export default function AlertasPage() {
               key={idx}
               className={`p-6 border-l-4 ${
                 alerta.severity === 'critical'
-                  ? 'border-red-500 bg-red-50'
+                  ? 'border-danger-DEFAULT bg-danger-subtle'
                   : alerta.severity === 'warning'
-                    ? 'border-yellow-500 bg-yellow-50'
-                    : 'border-blue-500 bg-blue-50'
+                    ? 'border-warning-DEFAULT bg-warning-subtle'
+                    : 'border-info-DEFAULT bg-info-subtle'
               }`}
             >
               <div className="flex items-start gap-4">
@@ -184,7 +184,7 @@ export default function AlertasPage() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-text-primary">
                       {alerta.titulo}
                     </h3>
                     <Badge
@@ -192,9 +192,9 @@ export default function AlertasPage() {
                       variant={variantMap[alerta.severity]}
                     />
                   </div>
-                  <p className="text-gray-700 mb-3">{alerta.descricao}</p>
+                  <p className="text-text-secondary mb-3">{alerta.descricao}</p>
                   {alerta.animal && (
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-text-muted">
                       <p>
                         <strong>Animal:</strong> Brinco {alerta.animal.brinco} -{' '}
                         {alerta.animal.raca}
@@ -228,28 +228,28 @@ export default function AlertasPage() {
       )}
 
       {/* Resumo */}
-      <Card className="p-6 bg-gradient-to-r from-primary-50 to-primary-100">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-text-primary mb-3">
           📊 Resumo de Alertas
         </h3>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-2xl font-bold text-red-600">
+            <p className="text-2xl font-bold text-danger-DEFAULT">
               {alertas.filter((a) => a.severity === 'critical').length}
             </p>
-            <p className="text-sm text-gray-600">Críticos</p>
+            <p className="text-sm text-text-muted">Críticos</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-yellow-600">
+            <p className="text-2xl font-bold text-warning-DEFAULT">
               {alertas.filter((a) => a.severity === 'warning').length}
             </p>
-            <p className="text-sm text-gray-600">Avisos</p>
+            <p className="text-sm text-text-muted">Avisos</p>
           </div>
           <div>
-            <p className="text-2xl font-bold text-blue-600">
+            <p className="text-2xl font-bold text-info-DEFAULT">
               {alertas.filter((a) => a.severity === 'info').length}
             </p>
-            <p className="text-sm text-gray-600">Informativos</p>
+            <p className="text-sm text-text-muted">Informativos</p>
           </div>
         </div>
       </Card>

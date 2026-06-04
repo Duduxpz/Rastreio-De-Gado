@@ -83,22 +83,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-bg-base flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-500 rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-DEFAULT rounded-full mb-4">
             <span className="text-3xl">🐄</span>
           </div>
-          <h1 className="text-4xl font-bold text-primary-600">Rastreio</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-4xl font-bold text-text-primary">Rastreio</h1>
+          <p className="text-text-muted mt-2">
             Rastreabilidade Bovina para sua Fazenda
           </p>
         </div>
 
         {/* Card */}
         <Card className="p-8 shadow-xl">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+          <h2 className="text-2xl font-bold text-text-primary mb-6 text-center">
             {isSignup ? 'Criar Conta' : 'Fazer Login'}
           </h2>
 
@@ -108,8 +108,8 @@ export default function LoginPage() {
                 className={`p-4 rounded-lg text-sm border ${
                   error.includes('realizado') ||
                   error.includes('Verifique')
-                    ? 'bg-green-50 text-green-700 border-green-200'
-                    : 'bg-red-50 text-red-700 border-red-200'
+                    ? 'bg-success-subtle text-success-DEFAULT border-success-DEFAULT/30'
+                    : 'bg-danger-subtle text-danger-DEFAULT border-danger-DEFAULT/30'
                 }`}
               >
                 {error}
@@ -166,8 +166,8 @@ export default function LoginPage() {
           </form>
 
           {/* Toggle Signup/Login */}
-          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-            <p className="text-sm text-gray-600">
+          <div className="mt-6 pt-6 border-t border-bg-border text-center">
+            <p className="text-sm text-text-secondary">
               {isSignup ? 'Já tem conta?' : 'Não tem conta?'}{' '}
               <button
                 onClick={() => {
@@ -177,7 +177,7 @@ export default function LoginPage() {
                   setPassword('');
                   setConfirmPassword('');
                 }}
-                className="font-semibold text-primary-600 hover:text-primary-700"
+                className="font-semibold text-cta-DEFAULT hover:text-cta-light"
               >
                 {isSignup ? 'Fazer login' : 'Criar conta'}
               </button>
@@ -187,15 +187,15 @@ export default function LoginPage() {
 
         {/* Features */}
         <div className="mt-12 grid grid-cols-3 gap-4 text-center text-sm">
-          <div className="text-white">
+          <div className="text-text-muted">
             <div className="text-2xl mb-2">📊</div>
             <p>Dashboard</p>
           </div>
-          <div className="text-white">
+          <div className="text-text-muted">
             <div className="text-2xl mb-2">🐄</div>
             <p>Rastreamento</p>
           </div>
-          <div className="text-white">
+          <div className="text-text-muted">
             <div className="text-2xl mb-2">📈</div>
             <p>Relatórios</p>
           </div>

@@ -122,13 +122,13 @@ export default function AnimaisPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
               Categoria
             </label>
             <select
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
             >
               <option value="">Todas</option>
               <option value="bezerro">Bezerro</option>
@@ -162,7 +162,7 @@ export default function AnimaisPage() {
                 key: 'brinco',
                 label: 'Brinco',
                 render: (value) => (
-                  <span className="font-semibold text-gray-900">{value}</span>
+                  <span className="font-semibold text-text-primary">{value}</span>
                 ),
               },
               {
@@ -250,7 +250,7 @@ export default function AnimaisPage() {
           />
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Sexo
               </label>
               <select
@@ -261,7 +261,7 @@ export default function AnimaisPage() {
                     sexo: e.target.value as Sexo,
                   })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
               >
                 <option value="M">Macho</option>
                 <option value="F">Fêmea</option>
@@ -281,7 +281,7 @@ export default function AnimaisPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Categoria
               </label>
               <select
@@ -292,7 +292,7 @@ export default function AnimaisPage() {
                     categoria: e.target.value as Categoria,
                   })
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
               >
                 <option value="bezerro">Bezerro</option>
                 <option value="novilha">Novilha</option>
