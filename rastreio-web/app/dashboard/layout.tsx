@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Navbar } from '@/components/Navbar';
+import { Topbar } from '@/components/Topbar';
 import { Sidebar } from '@/components/Sidebar';
 import { LoadingState } from '@/components/ui/LoadingState';
 
@@ -40,22 +40,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-primary-500">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-bg-base font-sans">
+      <Topbar userEmail={user?.email} fazendaNome="Fazenda São João" />
       <Sidebar />
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col md:ml-64">
-        {/* Navbar */}
-        <Navbar userEmail={user?.email} />
-
-        {/* Content */}
-        <main className="flex-1 overflow-auto pt-20 pb-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </div>
-        </main>
-      </div>
+      <main className="pl-56 pt-14">
+        <div className="px-8 py-6 max-w-7xl">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

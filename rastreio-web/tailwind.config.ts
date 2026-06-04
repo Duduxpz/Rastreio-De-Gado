@@ -5,25 +5,39 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#F0F4F9',
-          100: '#DDE7F2',
-          200: '#B4C7DE',
-          300: '#80A1C3',
-          400: '#4C7BA6',
-          500: '#121F2D',
-          600: '#0E1924',
-          700: '#0B141C',
-          800: '#080E14',
-          900: '#05090D',
+        // Fundo em camadas — profundidade real
+        bg: {
+          base: '#0B1A12',   // fundo da página (mais escuro)
+          surface: '#112318',   // cards e sidebar
+          elevated: '#163020',   // hover, dropdown, modais
+          border: '#1E3D28',   // bordas sutis
+          muted: '#1A2E20',   // faixas zebradas em tabelas
         },
-        accent: {
-          50: '#FEF3C7',
-          100: '#FEE4A7',
-          200: '#FDCA27',
-          500: '#D97706',
-          600: '#B45309',
-          700: '#92400E',
+        // Primária — verde vibrante (ação, seleção ativa)
+        brand: {
+          DEFAULT: '#22C55E',   // green-500
+          light: '#4ADE80',   // green-400
+          dim: '#16A34A',   // green-600
+          subtle: '#14532D22', // fundo de badge/tag (baixa opacidade)
+        },
+        // Laranja — destaque e CTA principal
+        cta: {
+          DEFAULT: '#F97316',   // orange-500
+          light: '#FB923C',   // orange-400
+          dim: '#EA580C',   // orange-600
+          subtle: '#43180522', // fundo de badge
+        },
+        // Semânticas
+        success: { DEFAULT: '#22C55E', subtle: '#14532D33' },
+        warning: { DEFAULT: '#EAB308', subtle: '#71350033' },
+        danger: { DEFAULT: '#EF4444', subtle: '#7F1D1D33' },
+        info: { DEFAULT: '#38BDF8', subtle: '#0C4A6E33' },
+        // Texto em camadas
+        text: {
+          primary: '#F0FDF4',  // títulos e valores
+          secondary: '#86EFAC',  // labels e subtítulos (green-300)
+          muted: '#4ADE8066', // placeholders e info baixa prioridade
+          inverse: '#0B1A12',  // texto sobre fundo claro
         },
       },
       fontFamily: {
