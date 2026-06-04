@@ -72,3 +72,4 @@ npm start
 - Mobile: Expo EAS
 # Pecuaria
 # Pecuaria
+# Rastreio-De-Gado
