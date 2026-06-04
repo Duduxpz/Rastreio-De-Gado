@@ -1,0 +1,34 @@
+{
+  "name": "rastreio-mobile",
+  "version": "1.0.0",
+  "description": "App mobile para rastreabilidade bovina",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "expo": "~51.0.0",
+    "expo-router": "~3.0.0",
+    "expo-sqlite": "~13.0.0",
+    "expo-constants": "~15.0.0",
+    "react": "18.2.0",
+    "react-native": "0.74.0",
+    "@react-native-community/netinfo": "^11.0.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "axios": "^1.6.5",
+    "react-hook-form": "^7.48.0",
+    "zod": "^3.22.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.45",
+    "@types/react-native": "~0.73.0",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.3.3",
+    "eslint": "^8.54.0"
+  }
+}
