@@ -13,9 +13,9 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
                        flex items-center justify-between px-6">
       {/* Logo */}
       <div className="flex items-center gap-3">
-        <div className="w-7 h-7 rounded-lg bg-brand-DEFAULT
-                        flex items-center justify-center text-text-inverse
-                        font-bold text-sm shadow-[0_0_12px_rgba(34,197,94,0.4)]">
+        <div className="w-7 h-7 rounded-lg bg-[#22C55E]
+                        flex items-center justify-center text-white
+                        font-bold text-sm shadow-[0_0_16px_rgba(34,197,94,0.8)]">
           R
         </div>
         <span className="font-semibold text-text-primary text-sm tracking-tight">

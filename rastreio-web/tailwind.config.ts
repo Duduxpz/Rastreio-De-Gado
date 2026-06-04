@@ -16,27 +16,27 @@ const config: Config = {
         // Primária — verde vibrante (ação, seleção ativa)
         brand: {
           DEFAULT: '#22C55E',   // green-500
-          light: '#4ADE80',   // green-400
+          light: '#86EFAC',   // green-300 mais claro
           dim: '#16A34A',   // green-600
-          subtle: '#14532D22', // fundo de badge/tag (baixa opacidade)
+          subtle: '#14532D44', // fundo de badge/tag (baixa opacidade)
         },
         // Laranja — destaque e CTA principal
         cta: {
-          DEFAULT: '#F97316',   // orange-500
-          light: '#FB923C',   // orange-400
+          DEFAULT: '#FB923C',   // orange-400 mais claro
+          light: '#FDBA74',   // orange-300
           dim: '#EA580C',   // orange-600
-          subtle: '#43180522', // fundo de badge
+          subtle: '#43180533', // fundo de badge
         },
         // Semânticas
         success: { DEFAULT: '#22C55E', subtle: '#14532D33' },
-        warning: { DEFAULT: '#EAB308', subtle: '#71350033' },
-        danger: { DEFAULT: '#EF4444', subtle: '#7F1D1D33' },
-        info: { DEFAULT: '#38BDF8', subtle: '#0C4A6E33' },
+        warning: { DEFAULT: '#FACC15', subtle: '#71350033' },
+        danger: { DEFAULT: '#F87171', subtle: '#7F1D1D33' },
+        info: { DEFAULT: '#60A5FA', subtle: '#0C4A6E33' },
         // Texto em camadas
         text: {
-          primary: '#F0FDF4',  // títulos e valores
-          secondary: '#86EFAC',  // labels e subtítulos (green-300)
-          muted: '#4ADE8066', // placeholders e info baixa prioridade
+          primary: '#FFFFFF',  // títulos e valores (branco mais vivo)
+          secondary: '#A7F3D0',  // labels e subtítulos (mais claro)
+          muted: '#6EE7B7', // placeholders e info baixa prioridade
           inverse: '#0B1A12',  // texto sobre fundo claro
         },
       },
