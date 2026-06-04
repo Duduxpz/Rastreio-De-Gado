@@ -1,13 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { StatCard } from '@/components/StatCard';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { Cow, Syringe, Scale, BarChart3, Plus } from 'lucide-react';
+import { StatCard } from '@/components/ui/StatCard';
+import { QuickAction } from '@/components/ui/QuickAction';
 import { LoadingState } from '@/components/ui/LoadingState';
-import { GraficoEvolucao } from '@/components/GraficoEvolucao';
-import type { Animal, Vacinacao, Pesagem } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -17,8 +15,6 @@ export default function DashboardPage() {
     totalPesagens: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [alertas, setAlertas] = useState<any[]>([]);
-  const [graficoData, setGraficoData] = useState<any[]>([]);
 
   useEffect(() => {
     const carregarDados = async () => {
@@ -52,30 +48,6 @@ export default function DashboardPage() {
           pesagensUltimas: pesagensData?.length || 0,
           totalPesagens: pesagensData?.length || 0,
         });
-
-        // Processar gráfico
-        const dataProcessada = (pesagensData || [])
-          .sort((a: any, b: any) => new Date(a.data).getTime() - new Date(b.data).getTime())
-          .map((p: any) => ({
-            data: new Date(p.data).toLocaleDateString('pt-BR'),
-            peso: p.peso,
-          }))
-          .slice(-30);
-
-        setGraficoData(dataProcessada);
-
-        // Gerar alertas
-        const alertasGerados: any[] = [];
-        if (vacinacaoData && vacinacaoData.length > 0) {
-          alertasGerados.push({
-            tipo: 'vacinacao',
-            titulo: `${vacinacaoData.length} vacinações pendentes`,
-            descricao: 'Existem animais que precisam ser vacinados em breve',
-            severity: 'warning',
-          });
-        }
-
-        setAlertas(alertasGerados);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
       } finally {
@@ -92,97 +64,102 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-2">Bem-vindo ao seu painel de controle</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium text-text-muted uppercase tracking-widest mb-1">
+            Visão geral
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+            Dashboard
+          </h1>
+        </div>
+        <button className="
+          flex items-center gap-2 px-4 py-2.5 rounded-xl
+          bg-cta-DEFAULT text-text-inverse text-sm font-medium
+          hover:bg-cta-light transition-colors
+          shadow-[0_2px_12px_rgba(249,115,22,0.35)]
+        ">
+          <Plus size={15} />
+          Novo Animal
+        </button>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Total de Animais"
           value={stats.totalAnimais}
-          icon="🐄"
+          icon={Cow}
+          iconColor="text-brand-DEFAULT"
+          iconBg="bg-brand-subtle"
           trend="up"
+          trendLabel="Aumentando"
         />
         <StatCard
           label="Vacinações Pendentes"
           value={stats.vacinacoesPendentes}
-          icon="💉"
-          trend={stats.vacinacoesPendentes > 0 ? 'down' : 'stable'}
+          icon={Syringe}
+          iconColor="text-warning-DEFAULT"
+          iconBg="bg-warning-subtle"
+          trend="neutral"
+          trendLabel="Estável"
         />
         <StatCard
           label="Pesagens (30 dias)"
           value={stats.pesagensUltimas}
-          icon="⚖️"
+          icon={Scale}
+          iconColor="text-info-DEFAULT"
+          iconBg="bg-info-subtle"
           trend="up"
+          trendLabel="Aumentando"
         />
         <StatCard
           label="Total de Registros"
           value={stats.totalPesagens}
-          icon="📊"
+          icon={BarChart3}
+          iconColor="text-cta-DEFAULT"
+          iconBg="bg-cta-subtle"
           trend="up"
+          trendLabel="Aumentando"
         />
       </div>
 
-      {/* Alertas */}
-      {alertas.length > 0 && (
-        <Card className="p-6 border-l-4 border-yellow-500 bg-yellow-50">
-          <h3 className="font-semibold text-gray-900 mb-4">🚨 Alertas Importantes</h3>
-          <div className="space-y-3">
-            {alertas.map((alerta, idx) => (
-              <div key={idx} className="flex items-start gap-3">
-                <Badge label={alerta.titulo} variant="warning" />
-                <p className="text-sm text-gray-700">{alerta.descricao}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Gráfico de Evolução */}
-      {graficoData.length > 0 && (
-        <Card className="p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">📈 Evolução de Peso (últimos 30 dias)</h3>
-          <GraficoEvolucao dados={graficoData} />
-        </Card>
-      )}
-
       {/* Quick Actions */}
-      <Card className="p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <a
+      <div>
+        <p className="text-xs font-medium text-text-muted uppercase tracking-widest mb-3">
+          Ações rápidas
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <QuickAction
             href="/dashboard/animais"
-            className="p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition text-center"
-          >
-            <div className="text-2xl mb-2">🐄</div>
-            <p className="text-sm font-medium text-gray-900">Ver Animais</p>
-          </a>
-          <a
+            icon={Cow}
+            label="Ver Animais"
+            description="Gerenciar rebanho"
+            accent
+          />
+          <QuickAction
             href="/dashboard/vacinacoes"
-            className="p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition text-center"
-          >
-            <div className="text-2xl mb-2">💉</div>
-            <p className="text-sm font-medium text-gray-900">Vacinações</p>
-          </a>
-          <a
+            icon={Syringe}
+            label="Vacinações"
+            description="Registros sanitários"
+          />
+          <QuickAction
             href="/dashboard/pesagens"
-            className="p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition text-center"
-          >
-            <div className="text-2xl mb-2">⚖️</div>
-            <p className="text-sm font-medium text-gray-900">Pesagens</p>
-          </a>
-          <a
+            icon={Scale}
+            label="Pesagens"
+            description="Controle de peso"
+          />
+          <QuickAction
             href="/dashboard/relatorios"
-            className="p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition text-center"
-          >
-            <div className="text-2xl mb-2">📈</div>
-            <p className="text-sm font-medium text-gray-900">Relatórios</p>
-          </a>
+            icon={BarChart3}
+            label="Relatórios"
+            description="Exportar PDF / GTA"
+          />
         </div>
-      </Card>
+      </div>
+
     </div>
   );
 }

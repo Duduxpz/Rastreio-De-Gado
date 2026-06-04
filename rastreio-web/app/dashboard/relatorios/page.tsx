@@ -1,25 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { PageHeader } from '@/components/ui/PageHeader';
+import { Card } from '@/components/ui/Card';
 import { LoadingState } from '@/components/ui/LoadingState';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from 'react';
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis
 } from 'recharts';
 
 interface AlertaItem {
@@ -158,7 +155,7 @@ export default function RelatoriosPage() {
     return <LoadingState message="Carregando relatórios..." />;
   }
 
-  const COLORS = ['#121F2D', '#4C7BA6', '#80A1C3', '#B4C7DE', '#DDE7F2'];
+  const COLORS = ['#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#D1FAE5'];
 
   return (
     <div className="space-y-6">
@@ -170,18 +167,18 @@ export default function RelatoriosPage() {
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6">
-          <p className="text-sm text-primary-100 mb-2">Total de Animais</p>
-          <p className="text-3xl font-bold text-white">
+          <p className="text-sm text-primary-300 mb-2">Total de Animais</p>
+          <p className="text-3xl font-bold text-accent-400">
             {stats.totalAnimais}
           </p>
-          <p className="text-xs text-primary-200 mt-2">
+          <p className="text-xs text-primary-400 mt-2">
             {stats.animaisAtivos} ativos
           </p>
         </Card>
 
         <Card className="p-6">
-          <p className="text-sm text-primary-100 mb-2">Vacinações</p>
-          <p className="text-3xl font-bold text-white">
+          <p className="text-sm text-primary-300 mb-2">Vacinações</p>
+          <p className="text-3xl font-bold text-accent-400">
             {stats.totalVacinacoes}
           </p>
           {stats.vacinacoesPendentes > 0 && (
@@ -193,11 +190,11 @@ export default function RelatoriosPage() {
         </Card>
 
         <Card className="p-6">
-          <p className="text-sm text-primary-100 mb-2">Peso Médio</p>
-          <p className="text-3xl font-bold text-white">
+          <p className="text-sm text-primary-300 mb-2">Peso Médio</p>
+          <p className="text-3xl font-bold text-accent-400">
             {stats.pesoMedio} kg
           </p>
-          <p className="text-xs text-primary-200 mt-2">
+          <p className="text-xs text-primary-400 mt-2">
             {stats.totalPesagens} pesagens registradas
           </p>
         </Card>
@@ -213,15 +210,15 @@ export default function RelatoriosPage() {
           {pesoData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={pesoData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#80A1C3" />
-                <XAxis dataKey="brinco" fontSize={12} stroke="#DDE7F2" />
-                <YAxis stroke="#DDE7F2" />
-                <Tooltip formatter={(v) => `${v} kg`} contentStyle={{ backgroundColor: '#0E1924', borderColor: '#0B141C', color: '#fff' }} />
-                <Bar dataKey="peso" fill="#80A1C3" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#3F82BE" />
+                <XAxis dataKey="brinco" fontSize={12} stroke="#CFDFF0" />
+                <YAxis stroke="#CFDFF0" />
+                <Tooltip formatter={(v) => `${v} kg`} contentStyle={{ backgroundColor: '#0C1321', borderColor: '#090E19', color: '#fff' }} />
+                <Bar dataKey="peso" fill="#10B981" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-primary-300 text-center py-8">
+            <p className="text-primary-400 text-center py-8">
               Nenhum dado disponível
             </p>
           )}
@@ -242,7 +239,7 @@ export default function RelatoriosPage() {
                   labelLine={false}
                   label={({ name, value }) => `${name}: ${value}`}
                   outerRadius={80}
-                  fill="#80A1C3"
+                  fill="#10B981"
                   dataKey="value"
                 >
                   {categoriaData.map((entry, index) => (
@@ -252,11 +249,11 @@ export default function RelatoriosPage() {
                     />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0E1924', borderColor: '#0B141C', color: '#fff' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#0C1321', borderColor: '#090E19', color: '#fff' }} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-primary-300 text-center py-8">
+            <p className="text-primary-400 text-center py-8">
               Nenhum dado disponível
             </p>
           )}
@@ -264,11 +261,11 @@ export default function RelatoriosPage() {
       </div>
 
       {/* Recomendações */}
-      <Card className="p-6 border-l-4 border-primary-300 bg-primary-700">
+      <Card className="p-6 border-l-4 border-accent-500 bg-primary-800">
         <h3 className="text-lg font-semibold text-white mb-4">
           ℹ️ Recomendações
         </h3>
-        <ul className="space-y-2 text-sm text-primary-100">
+        <ul className="space-y-2 text-sm text-primary-200">
           <li>• Realize pesagens regulares para monitorar o crescimento</li>
           <li>• Mantenha o calendário de vacinações sempre em dia</li>
           <li>• Revise os dados de cada animal mensalmente</li>

@@ -16,12 +16,12 @@ export function PageHeader({
   return (
     <div className="mb-8">
       {breadcrumb && (
-        <div className="flex items-center gap-2 mb-4 text-sm text-primary-200">
+        <div className="flex items-center gap-2 mb-4 text-sm text-primary-300">
           {breadcrumb.map((item, idx) => (
             <React.Fragment key={idx}>
               {idx > 0 && <span>/</span>}
               {item.href ? (
-                <a href={item.href} className="text-primary-300 hover:underline">
+                <a href={item.href} className="text-accent-400 hover:underline">
                   {item.label}
                 </a>
               ) : (
@@ -35,7 +35,7 @@ export function PageHeader({
         <div>
           <h1 className="text-3xl font-bold text-white">{title}</h1>
           {description && (
-            <p className="mt-2 text-primary-200">{description}</p>
+            <p className="mt-2 text-primary-300">{description}</p>
           )}
         </div>
         {action && <div className="flex-shrink-0">{action}</div>}

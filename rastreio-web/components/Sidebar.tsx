@@ -1,45 +1,60 @@
+'use client';
+import {
+    Bell,
+    ChevronRight,
+    Cow,
+    FileText,
+    LayoutDashboard,
+    Scale,
+    Settings,
+    Syringe
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-interface NavItem {
-  label: string;
-  href: string;
-  icon: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { label: 'Animais', href: '/dashboard/animais', icon: '🐄' },
-  { label: 'Vacinações', href: '/dashboard/vacinacoes', icon: '💉' },
-  { label: 'Pesagens', href: '/dashboard/pesagens', icon: '⚖️' },
-  { label: 'Relatórios', href: '/dashboard/relatorios', icon: '📈' },
-  { label: 'Alertas', href: '/dashboard/alertas', icon: '🚨' },
+const nav = [
+  { href: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard'   },
+  { href: '/dashboard/animais',   icon: Cow,             label: 'Animais'     },
+  { href: '/dashboard/vacinacoes',icon: Syringe,         label: 'Vacinações'  },
+  { href: '/dashboard/pesagens',  icon: Scale,           label: 'Pesagens'    },
+  { href: '/dashboard/relatorios',icon: FileText,        label: 'Relatórios'  },
+  { href: '/dashboard/alertas',   icon: Bell,            label: 'Alertas'     },
 ];
 
 export function Sidebar() {
-  const pathname = usePathname();
-
+  const path = usePathname();
   return (
-    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:pt-20 md:bg-primary-700 md:text-white">
-      <nav className="flex-1 px-4 py-6 space-y-2">
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+    <aside className="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-56
+                       bg-bg-surface border-r border-bg-border
+                       flex flex-col justify-between py-4 z-20">
+      <nav className="flex flex-col gap-0.5 px-2">
+        {nav.map(({ href, icon: Icon, label }) => {
+          const active = path === href;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-primary-400 text-primary-900 font-semibold'
-                  : 'text-primary-100 hover:bg-primary-600'
-              }`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              <span className="font-medium">{item.label}</span>
+            <Link key={href} href={href}
+              className={`
+                flex items-center gap-3 px-3 py-2.5 rounded-lg
+                text-sm font-medium transition-all duration-150
+                ${active
+                  ? 'bg-cta-DEFAULT text-text-inverse shadow-[0_2px_8px_rgba(249,115,22,0.35)]'
+                  : 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
+                }
+              `}>
+              <Icon size={16} className={active ? 'text-text-inverse' : ''} />
+              <span className="flex-1">{label}</span>
+              {active && <ChevronRight size={14} className="text-text-inverse/60" />}
             </Link>
           );
         })}
       </nav>
-    </div>
+      <div className="px-4">
+        <Link href="/dashboard/configuracoes"
+          className="flex items-center gap-2 text-xs text-text-muted
+                     hover:text-text-secondary transition-colors">
+          <Settings size={14} />
+          Configurações
+        </Link>
+      </div>
+    </aside>
   );
 }

@@ -1,11 +1,10 @@
-import React from 'react'; // CORRIGIDO: Adicionar import do React para usar React.memo
+import React from 'react';
 import { Card } from './ui/Card';
 
-// CORRIGIDO: Mover constantes para fora do componente
 const TREND_COLORS = {
-  up: 'text-green-600',
-  down: 'text-red-600',
-  stable: 'text-gray-600',
+  up: 'text-accent-400',
+  down: 'text-red-400',
+  stable: 'text-primary-400',
 } as const;
 
 const TREND_ICONS = {
@@ -22,7 +21,6 @@ interface StatCardProps {
   trend?: 'up' | 'down' | 'stable';
 }
 
-// CORRIGIDO: Envolver componente em React.memo
 export const StatCard = React.memo(function StatCard({
   label,
   value,
@@ -34,10 +32,10 @@ export const StatCard = React.memo(function StatCard({
     <Card className="p-6">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-600 mb-2">{label}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
+          <p className="text-sm font-medium text-primary-300 mb-2">{label}</p>
+          <p className="text-3xl font-bold text-accent-400">{value}</p>
           {delta && (
-            <p className={`text-xs mt-2 ${delta.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`text-xs mt-2 ${delta.isPositive ? 'text-accent-400' : 'text-red-400'}`}>
               {delta.isPositive ? '+' : '-'}{Math.abs(delta.value)}% vs mês passado
             </p>
           )}
