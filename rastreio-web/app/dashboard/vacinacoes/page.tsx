@@ -126,13 +126,13 @@ export default function VacinacoesPag() {
             onChange={(e) => setSearch(e.target.value)}
           />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
               Status
             </label>
             <select
               value={filtroStatus}
               onChange={(e) => setFiltroStatus(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
             >
               <option value="">Todos</option>
               <option value="pendente">Pendente</option>
@@ -162,7 +162,7 @@ export default function VacinacoesPag() {
                 label: 'Animal',
                 render: (_, row) =>
                   row.animal ? (
-                    <span className="font-semibold">
+                    <span className="font-semibold text-text-primary">
                       Brinco {row.animal.brinco}
                     </span>
                   ) : (
@@ -173,7 +173,7 @@ export default function VacinacoesPag() {
                 key: 'vacina',
                 label: 'Vacina',
                 render: (value) => (
-                  <span className="font-semibold text-gray-900">{value}</span>
+                  <span className="font-semibold text-text-primary">{value}</span>
                 ),
               },
               {
@@ -233,7 +233,7 @@ export default function VacinacoesPag() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-text-secondary mb-2">
               Animal *
             </label>
             <select
@@ -241,7 +241,7 @@ export default function VacinacoesPag() {
               onChange={(e) =>
                 setForm({ ...form, animal_id: e.target.value })
               }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
             >
               <option value="">Selecione um animal</option>
               {animaisOpcoes.map((a) => (

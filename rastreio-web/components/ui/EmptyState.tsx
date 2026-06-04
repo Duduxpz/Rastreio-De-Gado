@@ -17,14 +17,14 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <div className="text-5xl mb-4">{icon}</div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+      <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
       {description && (
-        <p className="text-gray-500 mb-6 max-w-sm">{description}</p>
+        <p className="text-text-muted mb-6 max-w-sm">{description}</p>
       )}
       {action && (
         <button
           onClick={action.onClick}
-          className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition"
+          className="px-4 py-2 bg-cta-DEFAULT text-text-inverse rounded-lg hover:bg-cta-light transition"
         >
           {action.label}
         </button>

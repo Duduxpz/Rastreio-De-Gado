@@ -42,7 +42,7 @@ export function ConfirmDialog({
       }
     >
       {description && (
-        <p className="text-gray-600">{description}</p>
+        <p className="text-text-secondary">{description}</p>
       )}
     </Modal>
   );

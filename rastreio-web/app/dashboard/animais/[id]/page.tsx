@@ -158,31 +158,31 @@ export default function AnimalDetailPage() {
       {/* Info Principal */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">
+          <h3 className="text-sm font-medium text-text-secondary mb-2">
             Informações Básicas
           </h3>
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-gray-500">Raça</p>
-              <p className="font-semibold text-gray-900">
+              <p className="text-xs text-text-muted">Raça</p>
+              <p className="font-semibold text-text-primary">
                 {animal.raca || '-'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Sexo</p>
-              <p className="font-semibold text-gray-900">
+              <p className="text-xs text-text-muted">Sexo</p>
+              <p className="font-semibold text-text-primary">
                 {animal.sexo === 'M' ? 'Macho' : 'Fêmea'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Categoria</p>
+              <p className="text-xs text-text-muted">Categoria</p>
               <Badge
                 label={animal.categoria || 'N/A'}
                 variant="info"
               />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Status</p>
+              <p className="text-xs text-text-muted">Status</p>
               <Badge
                 label={animal.ativo ? 'Ativo' : 'Inativo'}
                 variant={animal.ativo ? 'success' : 'danger'}
@@ -192,25 +192,25 @@ export default function AnimalDetailPage() {
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">
+          <h3 className="text-sm font-medium text-text-secondary mb-2">
             Localização
           </h3>
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-gray-500">Lote</p>
-              <p className="font-semibold text-gray-900">
+              <p className="text-xs text-text-muted">Lote</p>
+              <p className="font-semibold text-text-primary">
                 {animal.lote || '-'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Pasto</p>
-              <p className="font-semibold text-gray-900">
+              <p className="text-xs text-text-muted">Pasto</p>
+              <p className="font-semibold text-text-primary">
                 {animal.pasto || '-'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Data de Nascimento</p>
-              <p className="font-semibold text-gray-900">
+              <p className="text-xs text-text-muted">Data de Nascimento</p>
+              <p className="font-semibold text-text-primary">
                 {animal.data_nascimento
                   ? new Date(animal.data_nascimento).toLocaleDateString('pt-BR')
                   : '-'}
@@ -220,15 +220,15 @@ export default function AnimalDetailPage() {
         </Card>
 
         <Card className="p-6">
-          <h3 className="text-sm font-medium text-gray-600 mb-2">
+          <h3 className="text-sm font-medium text-text-secondary mb-2">
             Peso
           </h3>
-          <p className="text-4xl font-bold text-primary-500 mb-2">
+          <p className="text-4xl font-bold text-brand-light mb-2">
             {animal.peso_atual || '?'} kg
           </p>
-          <p className="text-xs text-gray-500">Última pesagem registrada</p>
+          <p className="text-xs text-text-muted">Última pesagem registrada</p>
           {pesagens.length > 0 && (
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-text-muted mt-2">
               {new Date(pesagens[0].data).toLocaleDateString('pt-BR')}
             </p>
           )}
@@ -238,7 +238,7 @@ export default function AnimalDetailPage() {
       {/* Gráfico de Evolução */}
       {graficoData.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <h3 className="text-lg font-semibold text-text-primary mb-4">
             📈 Evolução de Peso
           </h3>
           <GraficoEvolucao dados={graficoData} />
@@ -248,7 +248,7 @@ export default function AnimalDetailPage() {
       {/* Vacinações */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-text-primary">
             💉 Vacinações
           </h3>
           <Button
@@ -260,7 +260,7 @@ export default function AnimalDetailPage() {
         </div>
 
         {vacinacoes.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">
+          <p className="text-text-muted text-center py-4">
             Nenhuma vacinação registrada
           </p>
         ) : (
@@ -272,7 +272,7 @@ export default function AnimalDetailPage() {
                 key: 'vacina',
                 label: 'Vacina',
                 render: (value) => (
-                  <span className="font-semibold text-gray-900">{value}</span>
+                  <span className="font-semibold text-text-primary">{value}</span>
                 ),
               },
               {
@@ -307,7 +307,7 @@ export default function AnimalDetailPage() {
       {/* Pesagens */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-text-primary">
             ⚖️ Pesagens
           </h3>
           <Button
@@ -319,7 +319,7 @@ export default function AnimalDetailPage() {
         </div>
 
         {pesagens.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">
+          <p className="text-text-muted text-center py-4">
             Nenhuma pesagem registrada
           </p>
         ) : (

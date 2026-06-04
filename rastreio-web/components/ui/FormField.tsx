@@ -11,9 +11,9 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-text-secondary mb-2">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="text-danger-DEFAULT ml-1">*</span>}
       </label>
       {children}
     </div>

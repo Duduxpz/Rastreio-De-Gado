@@ -15,9 +15,9 @@ export function Section({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
           {subtitle && (
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
+            <p className="text-sm text-text-muted mt-1">{subtitle}</p>
           )}
         </div>
         {action && <div>{action}</div>}

@@ -28,7 +28,7 @@ export function Table<T extends Record<string, any>>({
   if (loading) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">Carregando...</p>
+        <p className="text-text-muted">Carregando...</p>
       </div>
     );
   }
@@ -36,7 +36,7 @@ export function Table<T extends Record<string, any>>({
   if (data.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500">{emptyMessage}</p>
+        <p className="text-text-muted">{emptyMessage}</p>
       </div>
     );
   }
@@ -51,11 +51,11 @@ export function Table<T extends Record<string, any>>({
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
+          <tr className="border-b border-bg-border bg-bg-elevated">
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`px-6 py-3 font-semibold text-sm text-gray-700 ${alignClasses[col.align || 'left']} ${col.width || ''}`}
+                className={`px-6 py-3 font-semibold text-sm text-text-primary ${alignClasses[col.align || 'left']} ${col.width || ''}`}
               >
                 {col.label}
               </th>
@@ -67,12 +67,12 @@ export function Table<T extends Record<string, any>>({
             <tr
               key={keyExtractor(row)}
               onClick={() => onRowClick?.(row)}
-              className={`border-b border-gray-200 ${onRowClick ? 'hover:bg-gray-50 cursor-pointer' : ''} transition`}
+              className={`border-b border-bg-border ${onRowClick ? 'hover:bg-bg-elevated cursor-pointer' : ''} transition`}
             >
               {columns.map((col) => (
                 <td
                   key={`${keyExtractor(row)}-${col.key}`}
-                  className={`px-6 py-4 text-sm text-gray-900 ${alignClasses[col.align || 'left']}`}
+                  className={`px-6 py-4 text-sm text-text-secondary ${alignClasses[col.align || 'left']}`}
                 >
                   {col.render
                     ? col.render((row as any)[col.key], row)
