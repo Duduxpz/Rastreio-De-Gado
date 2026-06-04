@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Cow, Syringe, Scale, BarChart3, Plus } from 'lucide-react';
-import { StatCard } from '@/components/ui/StatCard';
-import { QuickAction } from '@/components/ui/QuickAction';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { QuickAction } from '@/components/ui/QuickAction';
+import { StatCard } from '@/components/ui/StatCard';
 import { supabase } from '@/lib/supabase';
+import { BarChart3, Plus, Scale, Sprout, Syringe } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -91,7 +91,7 @@ export default function DashboardPage() {
         <StatCard
           label="Total de Animais"
           value={stats.totalAnimais}
-          icon={Cow}
+          icon={Sprout}
           iconColor="text-brand-DEFAULT"
           iconBg="bg-brand-subtle"
           trend="up"
@@ -134,7 +134,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <QuickAction
             href="/dashboard/animais"
-            icon={Cow}
+            icon={Sprout}
             label="Ver Animais"
             description="Gerenciar rebanho"
             accent
