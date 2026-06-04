@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { Card } from '@/components/ui/Card';
+import { GraficoEvolucao } from '@/components/GraficoEvolucao';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { Modal } from '@/components/ui/Modal';
-import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { GraficoEvolucao } from '@/components/GraficoEvolucao';
 import { Table } from '@/components/ui/Table';
-import type { Animal, Vacinacao, Pesagem } from '@/types';
+import { supabase } from '@/lib/supabase';
+import type { Animal, Pesagem, Vacinacao } from '@/types';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function AnimalDetailPage() {
   const params = useParams();
@@ -102,11 +102,12 @@ export default function AnimalDetailPage() {
 
   const handleAddPesagem = async () => {
     try {
+      const { peso, ...rest } = pesForm;
       const { error } = await supabase.from('pesagens').insert([
         {
           animal_id: animalId,
-          peso: parseFloat(pesForm.peso),
-          ...pesForm,
+          ...rest,
+          peso: parseFloat(peso),
         },
       ]);
 

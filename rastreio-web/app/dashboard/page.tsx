@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/components/ui/Button';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { QuickAction } from '@/components/ui/QuickAction';
 import { StatCard } from '@/components/ui/StatCard';
@@ -75,15 +76,10 @@ export default function DashboardPage() {
             Dashboard
           </h1>
         </div>
-        <button className="
-          flex items-center gap-2 px-4 py-2.5 rounded-xl
-          bg-cta-DEFAULT text-text-inverse text-sm font-medium
-          hover:bg-cta-light transition-colors
-          shadow-[0_2px_12px_rgba(249,115,22,0.35)]
-        ">
-          <Plus size={15} />
+        <Button variant="primary">
+          <Plus size={15} className="inline mr-2" />
           Novo Animal
-        </button>
+        </Button>
       </div>
 
       {/* Stats Grid */}
