@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Toast, ToastMessage } from '@/components/ui/Toast';
+import { ToastMessage } from '@/components/ui/Toast';
 
 export function useToast() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -27,14 +27,4 @@ export function useToast() {
   }, []);
 
   return { toasts, addToast, removeToast, clearToasts };
-}
-
-export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const { toasts, removeToast } = useToast();
-  return (
-    <>
-      {children}
-      <Toast toasts={toasts} onRemove={removeToast} />
-    </>
-  );
 }

@@ -238,7 +238,7 @@ export default function VacinacaoDetalhes() {
               </div>
               <div>
                 <p className="text-xs text-gray-400 uppercase mb-1">Categoria</p>
-                <p className="text-gray-300">{(animal.category || '').toUpperCase() || '—'}</p>
+                <p className="text-gray-300">{(animal.categoria || '').toUpperCase() || '—'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-400 uppercase mb-1">Sexo</p>

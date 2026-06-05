@@ -1,4 +1,5 @@
-import { Bell, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import { SinoNotificacoes } from './SinoNotificacoes';
 
 interface TopbarProps {
   userEmail: string;
@@ -28,14 +29,7 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
       {/* Direita */}
       <div className="flex items-center gap-3">
         {/* Notificação */}
-        <button className="relative w-8 h-8 rounded-lg bg-bg-elevated
-                           flex items-center justify-center
-                           hover:bg-bg-border transition-colors">
-          <Bell size={15} className="text-text-secondary" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2
-                           rounded-full bg-danger-DEFAULT
-                           ring-2 ring-bg-base" />
-        </button>
+        <SinoNotificacoes />
 
         {/* Avatar + usuário */}
         <button className="flex items-center gap-2 px-3 py-1.5
