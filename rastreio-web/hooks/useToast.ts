@@ -1,16 +1,9 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { ToastMessage, Toast } from './ui/Toast';
+import { useState, useCallback } from 'react';
+import { Toast, ToastMessage } from '@/components/ui/Toast';
 
-interface UseToastReturn {
-  toasts: ToastMessage[];
-  addToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number) => void;
-  removeToast: (id: string) => void;
-  clearToasts: () => void;
-}
-
-export function useToast(): UseToastReturn {
+export function useToast() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const addToast = useCallback(
@@ -19,7 +12,7 @@ export function useToast(): UseToastReturn {
       type: 'success' | 'error' | 'info' | 'warning' = 'info',
       duration: number = 3000
     ) => {
-      const id = Math.random().toString(36).substr(2, 9);
+      const id = Math.random().toString(36).substring(2, 11);
       setToasts((prev) => [...prev, { id, message, type, duration }]);
     },
     []
@@ -38,7 +31,6 @@ export function useToast(): UseToastReturn {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const { toasts, removeToast } = useToast();
-
   return (
     <>
       {children}
