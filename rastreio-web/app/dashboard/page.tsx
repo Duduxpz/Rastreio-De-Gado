@@ -1,67 +1,29 @@
 'use client';
 
 import { Button } from '@/components/ui/Button';
-import { LoadingState } from '@/components/ui/LoadingState';
 import { QuickAction } from '@/components/ui/QuickAction';
 import { StatCard } from '@/components/ui/StatCard';
-import { supabase } from '@/lib/supabase';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { BarChart3, Plus, Scale, Sprout, Syringe } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    totalAnimais: 0,
-    vacinacoesPendentes: 0,
-    pesagensUltimas: 0,
-    totalPesagens: 0,
-  });
-  const [loading, setLoading] = useState(true);
+  const stats = useDashboardStats();
 
-  useEffect(() => {
-    const carregarDados = async () => {
-      try {
-        // Carregar animais
-        const { data: animaisData, error: animaisErr } = await supabase
-          .from('animais')
-          .select('*');
+  const mapTrendencia = (
+    t: 'aumentando' | 'estavel' | 'diminuindo'
+  ): 'up' | 'down' | 'neutral' => {
+    if (t === 'aumentando') return 'up';
+    if (t === 'diminuindo') return 'down';
+    return 'neutral';
+  };
 
-        if (animaisErr) throw animaisErr;
-
-        // Carregar vacinações
-        const { data: vacinacaoData, error: vacErr } = await supabase
-          .from('vacinacoes')
-          .select('*')
-          .gt('proxima_dose', new Date().toISOString().split('T')[0]);
-
-        if (vacErr) throw vacErr;
-
-        // Carregar pesagens
-        const { data: pesagensData, error: pesErr } = await supabase
-          .from('pesagens')
-          .select('*')
-          .gte('data', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-
-        if (pesErr) throw pesErr;
-
-        setStats({
-          totalAnimais: animaisData?.length || 0,
-          vacinacoesPendentes: vacinacaoData?.length || 0,
-          pesagensUltimas: pesagensData?.length || 0,
-          totalPesagens: pesagensData?.length || 0,
-        });
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    carregarDados();
-  }, []);
-
-  if (loading) {
-    return <LoadingState message="Carregando dashboard..." />;
-  }
+  const mapTendenciaLabel = (
+    t: 'aumentando' | 'estavel' | 'diminuindo'
+  ): string => {
+    if (t === 'aumentando') return 'Aumentando';
+    if (t === 'diminuindo') return 'Diminuindo';
+    return 'Estável';
+  };
 
   return (
     <div className="space-y-8">
@@ -90,8 +52,8 @@ export default function DashboardPage() {
           icon={Sprout}
           iconColor="text-brand-DEFAULT"
           iconBg="bg-brand-subtle"
-          trend="up"
-          trendLabel="Aumentando"
+          trend={mapTrendencia(stats.tendenciaAnimais)}
+          trendLabel={mapTendenciaLabel(stats.tendenciaAnimais)}
         />
         <StatCard
           label="Vacinações Pendentes"
@@ -99,26 +61,26 @@ export default function DashboardPage() {
           icon={Syringe}
           iconColor="text-warning-DEFAULT"
           iconBg="bg-warning-subtle"
-          trend="neutral"
-          trendLabel="Estável"
+          trend={mapTrendencia(stats.tendenciaVacinacoes)}
+          trendLabel={mapTendenciaLabel(stats.tendenciaVacinacoes)}
         />
         <StatCard
           label="Pesagens (30 dias)"
-          value={stats.pesagensUltimas}
+          value={stats.pesagens30Dias}
           icon={Scale}
           iconColor="text-info-DEFAULT"
           iconBg="bg-info-subtle"
-          trend="up"
-          trendLabel="Aumentando"
+          trend={mapTrendencia(stats.tendenciaPesagens)}
+          trendLabel={mapTendenciaLabel(stats.tendenciaPesagens)}
         />
         <StatCard
           label="Total de Registros"
-          value={stats.totalPesagens}
+          value={stats.totalRegistros}
           icon={BarChart3}
           iconColor="text-cta-DEFAULT"
           iconBg="bg-cta-subtle"
-          trend="up"
-          trendLabel="Aumentando"
+          trend={mapTrendencia(stats.tendenciaRegistros)}
+          trendLabel={mapTendenciaLabel(stats.tendenciaRegistros)}
         />
       </div>
 

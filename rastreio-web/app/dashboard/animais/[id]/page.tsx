@@ -10,13 +10,15 @@ import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Table } from '@/components/ui/Table';
 import { supabase } from '@/lib/supabase';
+import { notificarDashboard } from '@/lib/notificarDashboard';
 import type { Animal, Pesagem, Vacinacao } from '@/types';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function AnimalDetailPage() {
   const params = useParams();
   const animalId = params.id as string;
+  const router = useRouter();
 
   const [animal, setAnimal] = useState<Animal | null>(null);
   const [vacinacoes, setVacinacoes] = useState<Vacinacao[]>([]);
@@ -44,6 +46,37 @@ export default function AnimalDetailPage() {
   const carregarDados = async () => {
     try {
       setLoading(true);
+      // Tentar carregamento local primeiro
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
+      if (stored) {
+        const locais = JSON.parse(stored || '[]');
+        const encontrado = locais.find((a: any) => a.id === animalId);
+        if (encontrado) {
+          // Mapear para tipo Animal usado pela UI
+          const mapped = {
+            id: encontrado.id,
+            fazenda_id: encontrado.fazenda_id || '',
+            brinco: encontrado.brinco || '',
+            raca: encontrado.raca || '',
+            sexo: encontrado.sexo === 'Macho' ? 'M' : encontrado.sexo === 'Fêmea' ? 'F' : (encontrado.sexo || ''),
+            data_nascimento: encontrado.dataNascimento || encontrado.data_nascimento || '',
+            peso_atual: encontrado.peso ? (isNaN(Number(encontrado.peso)) ? null : Number(encontrado.peso)) : null,
+            lote: encontrado.lote || '',
+            pasto: encontrado.pasto || '',
+            categoria: (encontrado.categoria || '').toLowerCase(),
+            foto_url: encontrado.foto_url || null,
+            ativo: true,
+            created_at: encontrado.criadoEm || new Date().toISOString(),
+            updated_at: encontrado.updated_at || new Date().toISOString(),
+          };
+          setAnimal(mapped as Animal);
+          setVacinacoes([]);
+          setPesagens([]);
+          return;
+        }
+      }
+
+      // Fallback para Supabase caso não exista localmente
       const { data: animalData, error: animalErr } = await supabase
         .from('animais')
         .select('*')
@@ -94,6 +127,7 @@ export default function AnimalDetailPage() {
         veterinario: '',
         proxima_dose: '',
       });
+      notificarDashboard();
       carregarDados();
     } catch (error) {
       console.error('Erro ao adicionar vacinação:', error);
@@ -125,6 +159,7 @@ export default function AnimalDetailPage() {
         data: '',
         observacao: '',
       });
+      notificarDashboard();
       carregarDados();
     } catch (error) {
       console.error('Erro ao adicionar pesagem:', error);
@@ -453,6 +488,18 @@ export default function AnimalDetailPage() {
           />
         </div>
       </Modal>
+      <button
+        onClick={() => router.push('/dashboard/animais')}
+        className="text-white opacity-80 hover:opacity-100 mb-4 flex items-center gap-2"
+      >
+        ← Voltar
+      </button>
+
+      <div className="mt-6">
+        <Button variant="primary" onClick={() => { /* placeholder for edit */ }}>
+          Editar Animal
+        </Button>
+      </div>
     </div>
   );
 }
