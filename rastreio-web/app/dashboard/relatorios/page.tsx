@@ -47,7 +47,6 @@ interface CategoriaItem {
 }
 
 export default function RelatoriosPage() {
-  const [alertas, setAlertas] = useState<AlertaItem[]>([]);
   const [stats, setStats] = useState<StatsData>({
     totalAnimais: 0,
     animaisAtivos: 0,
@@ -143,7 +142,7 @@ export default function RelatoriosPage() {
         });
       }
 
-      setAlertas(alertasGerados);
+      // Ignorar alertasGerados (dados calculados mas não usados)
     } catch (error) {
       console.error('Erro:', error);
     } finally {
@@ -242,7 +241,7 @@ export default function RelatoriosPage() {
                   fill="#22C55E"
                   dataKey="value"
                 >
-                  {categoriaData.map((entry, index) => (
+                  {categoriaData.map((_, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={COLORS[index % COLORS.length]}

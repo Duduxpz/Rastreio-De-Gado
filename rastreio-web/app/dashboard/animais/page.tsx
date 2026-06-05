@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
+import { notificarDashboard } from '@/lib/notificarDashboard';
 import type { Animal, Categoria, Sexo } from '@/types';
 
 export default function AnimaisPage() {
@@ -37,13 +38,37 @@ export default function AnimaisPage() {
   const carregarAnimais = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('animais')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Preferir dados locais (localStorage) para fluxo offline/rápido
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
+      if (stored) {
+        const locais = JSON.parse(stored || '[]');
+        // Mapear para formato usado pela UI (compatível com backend)
+        const mapped = locais.map((a: any) => ({
+          id: a.id,
+          fazenda_id: a.fazenda_id || '',
+          brinco: a.brinco || '',
+          raca: a.raca || '',
+          sexo: a.sexo === 'Macho' ? 'M' : a.sexo === 'Fêmea' ? 'F' : (a.sexo || ''),
+          data_nascimento: a.dataNascimento || a.data_nascimento || '',
+          peso_atual: a.peso ? (isNaN(Number(a.peso)) ? undefined : Number(a.peso)) : (a.peso_atual || undefined),
+          lote: a.lote || '',
+          pasto: a.pasto || '',
+          categoria: (a.categoria || '').toLowerCase(),
+          foto_url: a.foto_url || null,
+          ativo: typeof a.ativo === 'boolean' ? a.ativo : true,
+          created_at: a.criadoEm || a.created_at || new Date().toISOString(),
+          updated_at: a.updated_at || new Date().toISOString(),
+        }));
+        setAnimais(mapped || []);
+      } else {
+        const { data, error } = await supabase
+          .from('animais')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setAnimais(data || []);
+        if (error) throw error;
+        setAnimais(data || []);
+      }
     } catch (error) {
       console.error('Erro ao carregar animais:', error);
     } finally {
@@ -51,23 +76,58 @@ export default function AnimaisPage() {
     }
   };
 
-  const handleCriarAnimal = async () => {
+  const handleCriarAnimal = () => {
+    // Criar animal conforme o schema solicitado e salvar em localStorage
+    const novoAnimal = {
+      id: Date.now().toString(),
+      brinco: formData.brinco || '',
+      raca: formData.raca || '',
+      sexo: formData.sexo === 'M' ? 'Macho' : formData.sexo === 'F' ? 'Fêmea' : (formData.sexo || ''),
+      dataNascimento: formData.data_nascimento || '',
+      categoria:
+        formData.categoria === 'bezerro'
+          ? 'Bezerro'
+          : formData.categoria === 'novilha'
+          ? 'Novilha'
+          : formData.categoria === 'vaca'
+          ? 'Vaca'
+          : formData.categoria === 'touro'
+          ? 'Touro'
+          : formData.categoria === 'boi'
+          ? 'Boi'
+          : formData.categoria || '',
+      peso: formData.peso_atual || '',
+      lote: formData.lote || '',
+      pasto: formData.pasto || '',
+      criadoEm: new Date().toISOString(),
+    };
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
+      const existentes = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('animais') || '[]') : [];
+      const atualizados = [...existentes, novoAnimal];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('animais', JSON.stringify(atualizados));
+      }
 
-      // Aqui você precisaria buscar a fazenda_id do usuário
-      const { error } = await supabase.from('animais').insert([
-        {
-          ...formData,
-          fazenda_id: session.user.id, // Isso deveria ser a fazenda_id real
-          peso_atual: formData.peso_atual ? parseFloat(formData.peso_atual) : null,
-          ativo: true,
-        },
-      ]);
+      // Atualizar state local (mapear para formato UI)
+      const mapped = atualizados.map((a: any) => ({
+        id: a.id,
+        fazenda_id: a.fazenda_id || '',
+        brinco: a.brinco || '',
+        raca: a.raca || '',
+        sexo: a.sexo === 'Macho' ? 'M' : a.sexo === 'Fêmea' ? 'F' : (a.sexo || ''),
+        data_nascimento: a.dataNascimento || a.data_nascimento || '',
+        peso_atual: a.peso ? (isNaN(Number(a.peso)) ? undefined : Number(a.peso)) : undefined,
+        lote: a.lote || '',
+        pasto: a.pasto || '',
+        categoria: (a.categoria || a.categoria)?.toLowerCase() || '',
+        foto_url: a.foto_url || null,
+        ativo: true,
+        created_at: a.criadoEm || new Date().toISOString(),
+        updated_at: a.updated_at || new Date().toISOString(),
+      }));
 
-      if (error) throw error;
-
+      setAnimais(mapped);
       setShowModal(false);
       setFormData({
         brinco: '',
@@ -79,9 +139,10 @@ export default function AnimaisPage() {
         pasto: '',
         peso_atual: '',
       });
-      carregarAnimais();
-    } catch (error) {
-      console.error('Erro ao criar animal:', error);
+      notificarDashboard();
+    } catch (e) {
+      console.error('Erro salvando animal localmente:', e);
+      // Não mostrar alertas ou mensagens de erro conforme regra
     }
   };
 
@@ -223,7 +284,7 @@ export default function AnimaisPage() {
             <Button variant="ghost" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
-            <Button variant="primary" onClick={handleCriarAnimal}>
+            <Button variant="primary" onClick={handleCriarAnimal} type="button">
               Criar Animal
             </Button>
           </>
@@ -231,13 +292,12 @@ export default function AnimaisPage() {
       >
         <div className="space-y-4">
           <Input
-            label="Brinco *"
+            label="Brinco"
             placeholder="Ex: 001"
             value={formData.brinco}
             onChange={(e) =>
               setFormData({ ...formData, brinco: e.target.value })
             }
-            required
           />
           <Input
             label="Raça"
