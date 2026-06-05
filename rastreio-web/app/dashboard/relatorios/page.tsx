@@ -1,275 +1,402 @@
 'use client';
 
-import { Badge } from '@/components/ui/Badge';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
-import { LoadingState } from '@/components/ui/LoadingState';
+import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { supabase } from '@/lib/supabase';
-import { useEffect, useState } from 'react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Cell,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis
-} from 'recharts';
-
-interface AlertaItem {
-  tipo: 'vacinacao' | 'pesagem';
-  severity: 'critical' | 'warning' | 'info';
-  titulo: string;
-  descricao: string;
-  data: string;
-}
-
-interface StatsData {
-  totalAnimais: number;
-  animaisAtivos: number;
-  totalVacinacoes: number;
-  vacinacoesPendentes: number;
-  pesoMedio: number;
-  totalPesagens: number;
-}
-
-interface PesoItem {
-  brinco: string;
-  peso: number;
-}
-
-interface CategoriaItem {
-  name: string;
-  value: number;
-}
+import { Button } from '@/components/ui/Button';
+import { gerarAlertas, type Alerta } from '@/utils/gerarAlertas';
 
 export default function RelatoriosPage() {
-  const [stats, setStats] = useState<StatsData>({
-    totalAnimais: 0,
-    animaisAtivos: 0,
-    totalVacinacoes: 0,
-    vacinacoesPendentes: 0,
-    pesoMedio: 0,
-    totalPesagens: 0,
-  });
-  const [pesoData, setPesoData] = useState<PesoItem[]>([]);
-  const [categoriaData, setCategoriaData] = useState<CategoriaItem[]>([]);
+  const [animais, setAnimais] = useState<any[]>([]);
+  const [vacinacoes, setVacinacoes] = useState<any[]>([]);
+  const [pesagens, setPesagens] = useState<any[]>([]);
+  const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     carregarDados();
   }, []);
 
-  const carregarDados = async () => {
-    try {
-      setLoading(true);
+  const carregarDados = () => {
+    const a = JSON.parse(localStorage.getItem('animais') || '[]');
+    const v = JSON.parse(localStorage.getItem('vacinacoes') || '[]');
+    const p = JSON.parse(localStorage.getItem('pesagens') || '[]');
 
-      // 1. Carregar animais
-      const { data: animais } = await supabase.from('animais').select('*');
+    setAnimais(a);
+    setVacinacoes(v);
+    setPesagens(p);
+    setAlertas(gerarAlertas(a, v, p));
+    setLoading(false);
+  };
 
-      // 2. Carregar vacinações
-      const { data: vacinacoes } = await supabase.from('vacinacoes').select('*');
+  const totalAplicadas = vacinacoes.filter(
+    (v) => v.status === 'aplicada'
+  ).length;
+  const totalPendentes = vacinacoes.filter(
+    (v) => v.status === 'pendente'
+  ).length;
 
-      // 3. Carregar pesagens
-      const { data: pesagens } = await supabase.from('pesagens').select('*, animais(brinco)');
+  const hoje = new Date();
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const pesagensMes = pesagens.filter((p) => {
+    const data = p.data ? new Date(p.data) : null;
+    return data && data >= inicioMes;
+  }).length;
 
-      const hoje = new Date().toISOString().split('T')[0];
-      const alertasGerados: AlertaItem[] = [];
-
-      // Calcular stats
-      const totalAnimais = animais?.length || 0;
-      const animaisAtivos = animais?.filter(a => a.ativo).length || 0;
-      const totalVacinacoes = vacinacoes?.length || 0;
-      const vacinacoesPendentes = vacinacoes?.filter(v => v.proxima_dose && v.proxima_dose <= hoje).length || 0;
-      const totalPesagens = pesagens?.length || 0;
-
-      // Calcular peso médio
-      let pesoMedio = 0;
-      if (pesagens && pesagens.length > 0) {
-        const totalPeso = pesagens.reduce((sum, p) => sum + (p.peso || 0), 0);
-        pesoMedio = Math.round(totalPeso / pesagens.length);
-      }
-
-      setStats({
-        totalAnimais,
-        animaisAtivos,
-        totalVacinacoes,
-        vacinacoesPendentes,
-        pesoMedio,
-        totalPesagens,
-      });
-
-      // Preparar dados para gráfico de peso
-      if (pesagens) {
-        const pesoPorAnimal: Record<string, number> = {};
-        pesagens.forEach(p => {
-          const brinco = p.animais?.brinco || 'Desconhecido';
-          pesoPorAnimal[brinco] = p.peso;
-        });
-        const pesoDataArray = Object.entries(pesoPorAnimal)
-          .map(([brinco, peso]) => ({ brinco, peso }))
-          .sort((a, b) => b.peso - a.peso)
-          .slice(0, 10);
-        setPesoData(pesoDataArray);
-      }
-
-      // Preparar dados para gráfico de categorias
-      if (animais) {
-        const categorias: Record<string, number> = {};
-        animais.forEach(a => {
-          const cat = a.categoria || 'Outro';
-          categorias[cat] = (categorias[cat] || 0) + 1;
-        });
-        const categoriaDataArray = Object.entries(categorias).map(([name, value]) => ({ name, value }));
-        setCategoriaData(categoriaDataArray);
-      }
-
-      // Gerar alertas de vacinação pendente
-      if (vacinacoes && vacinacoes.length > 0) {
-        vacinacoes.forEach((vac) => {
-          if (vac.proxima_dose && vac.proxima_dose <= hoje) {
-            alertasGerados.push({
-              tipo: 'vacinacao',
-              severity: vac.proxima_dose < hoje ? 'critical' : 'warning',
-              titulo: `Vacinação Pendente - ${vac.vacina}`,
-              descricao: `Esta vacinação está pendente desde ${new Date(vac.proxima_dose).toLocaleDateString('pt-BR')}`,
-              data: vac.proxima_dose,
-            });
-          }
-        });
-      }
-
-      // Ignorar alertasGerados (dados calculados mas não usados)
-    } catch (error) {
-      console.error('Erro:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleExportarPDF = () => {
+    window.print();
   };
 
   if (loading) {
-    return <LoadingState message="Carregando relatórios..." />;
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Relatórios"
+          description="Carregando dados..."
+        />
+      </div>
+    );
   }
 
-  const COLORS = ['#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#D1FAE5'];
-
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Relatórios"
-        description="Análise e estatísticas da fazenda"
-      />
+    <div className="space-y-6 print:space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <PageHeader
+          title="Relatórios"
+          description="Visão consolidada do rebanho"
+        />
+        <Button
+          variant="primary"
+          onClick={handleExportarPDF}
+          className="print:hidden"
+        >
+          ↓ Exportar PDF
+        </Button>
+      </div>
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Cards resumo */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Total Animais */}
         <Card className="p-6">
-          <p className="text-sm text-text-muted mb-2">Total de Animais</p>
-          <p className="text-3xl font-bold text-brand-light">
-            {stats.totalAnimais}
+          <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
+            Total de Animais
           </p>
-          <p className="text-xs text-text-muted mt-2">
-            {stats.animaisAtivos} ativos
+          <p className="text-3xl font-bold text-text-primary">
+            {animais.length}
           </p>
         </Card>
 
+        {/* Vacinações */}
         <Card className="p-6">
-          <p className="text-sm text-text-muted mb-2">Vacinações</p>
-          <p className="text-3xl font-bold text-brand-light">
-            {stats.totalVacinacoes}
+          <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
+            Vacinações
           </p>
-          {stats.vacinacoesPendentes > 0 && (
-            <Badge
-              label={`${stats.vacinacoesPendentes} pendentes`}
-              variant="warning"
-            />
-          )}
+          <div className="space-y-1">
+            <p className="text-sm text-green-400">
+              ✓ {totalAplicadas} aplicadas
+            </p>
+            <p className="text-sm text-yellow-500">
+              ⏳ {totalPendentes} pendentes
+            </p>
+          </div>
         </Card>
 
+        {/* Pesagens Mês */}
         <Card className="p-6">
-          <p className="text-sm text-text-muted mb-2">Peso Médio</p>
-          <p className="text-3xl font-bold text-brand-light">
-            {stats.pesoMedio} kg
+          <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
+            Pesagens (Mês)
           </p>
-          <p className="text-xs text-text-muted mt-2">
-            {stats.totalPesagens} pesagens registradas
+          <p className="text-3xl font-bold text-text-primary">
+            {pesagensMes}
+          </p>
+        </Card>
+
+        {/* Alertas Ativos */}
+        <Card
+          className={`p-6 ${
+            alertas.length > 0 ? 'border-yellow-600/30' : 'border-green-600/30'
+          }`}
+        >
+          <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
+            Alertas Ativos
+          </p>
+          <p
+            className={`text-3xl font-bold ${
+              alertas.length > 0 ? 'text-yellow-500' : 'text-green-400'
+            }`}
+          >
+            {alertas.length}
           </p>
         </Card>
       </div>
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de Peso por Animal */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
-            Peso por Animal (Top 10)
-          </h3>
-          {pesoData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={pesoData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E3D28" />
-                <XAxis dataKey="brinco" fontSize={12} stroke="#86EFAC" />
-                <YAxis stroke="#86EFAC" />
-                <Tooltip formatter={(v) => `${v} kg`} contentStyle={{ backgroundColor: '#112318', borderColor: '#1E3D28', color: '#F0FDF4' }} />
-                <Bar dataKey="peso" fill="#22C55E" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-text-muted text-center py-8">
-              Nenhum dado disponível
-            </p>
-          )}
-        </Card>
+      {/* Seção Animais */}
+      <Card className="p-6">
+        <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
+          Animais
+        </h2>
+        {animais.length === 0 ? (
+          <p className="text-sm text-text-muted">Nenhum animal cadastrado.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-bg-border">
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Brinco
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Raça
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Sexo
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Categoria
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Peso (kg)
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Lote
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Pasto
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {animais.map((a, idx) => (
+                  <tr
+                    key={a.id || idx}
+                    className="border-b border-bg-border/50 hover:bg-bg-elevated/30"
+                  >
+                    <td className="px-4 py-3 text-text-primary font-medium">
+                      {a.brinco || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {a.raca || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {a.sexo === 'M' || a.sexo === 'Macho'
+                        ? 'M'
+                        : a.sexo === 'F' || a.sexo === 'Fêmea'
+                          ? 'F'
+                          : a.sexo || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {a.categoria ? (
+                        <Badge
+                          label={a.categoria}
+                          variant={
+                            a.categoria === 'vaca' || a.categoria === 'Vaca'
+                              ? 'success'
+                              : a.categoria === 'touro' ||
+                                  a.categoria === 'Touro'
+                                ? 'warning'
+                                : 'info'
+                          }
+                        />
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {a.peso || a.peso_atual ? `${a.peso || a.peso_atual} kg` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {a.lote || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {a.pasto || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
-        {/* Gráfico de Distribuição de Categorias */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
-            Distribuição de Categorias
-          </h3>
-          {categoriaData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={categoriaData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#22C55E"
-                  dataKey="value"
-                >
-                  {categoriaData.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#112318', borderColor: '#1E3D28', color: '#F0FDF4' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-text-muted text-center py-8">
-              Nenhum dado disponível
-            </p>
-          )}
-        </Card>
-      </div>
+      {/* Seção Vacinações */}
+      <Card className="p-6">
+        <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
+          Vacinações
+        </h2>
+        {vacinacoes.length === 0 ? (
+          <p className="text-sm text-text-muted">
+            Nenhuma vacinação registrada.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-bg-border">
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Animal
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Vacina
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Data Aplicação
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Vencimento
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Responsável
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {vacinacoes.map((v, idx) => (
+                  <tr
+                    key={v.id || idx}
+                    className="border-b border-bg-border/50 hover:bg-bg-elevated/30"
+                  >
+                    <td className="px-4 py-3 text-text-primary font-medium">
+                      {v.animalBrinco || v.animal_id || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {v.vacina || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {v.dataAplicacao || v.data || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {v.dataVencimento || v.proxima_dose || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {v.veterinario || v.responsavel || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        label={
+                          v.status === 'aplicada' || v.data
+                            ? 'Aplicada'
+                            : 'Pendente'
+                        }
+                        variant={
+                          v.status === 'aplicada' || v.data
+                            ? 'success'
+                            : 'warning'
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
-      {/* Recomendações */}
-      <Card className="p-6 border-l-4 border-brand-DEFAULT">
-        <h3 className="text-lg font-semibold text-text-primary mb-4">
-          ℹ️ Recomendações
-        </h3>
-        <ul className="space-y-2 text-sm text-text-secondary">
-          <li>• Realize pesagens regulares para monitorar o crescimento</li>
-          <li>• Mantenha o calendário de vacinações sempre em dia</li>
-          <li>• Revise os dados de cada animal mensalmente</li>
-          <li>• Use os relatórios para tomar decisões de manejo</li>
-        </ul>
+      {/* Seção Pesagens */}
+      <Card className="p-6">
+        <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
+          Pesagens
+        </h2>
+        {pesagens.length === 0 ? (
+          <p className="text-sm text-text-muted">
+            Nenhuma pesagem registrada.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-bg-border">
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Animal
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Peso (kg)
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Data
+                  </th>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-text-muted">
+                    Observações
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pesagens.map((p, idx) => (
+                  <tr
+                    key={p.id || idx}
+                    className="border-b border-bg-border/50 hover:bg-bg-elevated/30"
+                  >
+                    <td className="px-4 py-3 text-text-primary font-medium">
+                      {p.animalBrinco || p.animal_id || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {p.peso || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {p.data || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary">
+                      {p.observacoes || p.observacao || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Seção Alertas */}
+      <Card className="p-6">
+        <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
+          Alertas Ativos
+        </h2>
+        {alertas.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-2xl mb-2">✓</p>
+            <p className="text-sm text-text-muted">
+              Nenhum alerta ativo. Tudo em ordem!
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {alertas.map((alerta) => (
+              <div
+                key={alerta.id}
+                className={`p-4 rounded-lg border ${
+                  alerta.tipo === 'critico'
+                    ? 'bg-red-900/20 border-red-600/30'
+                    : 'bg-yellow-900/20 border-yellow-600/30'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-lg flex-shrink-0">
+                    {alerta.tipo === 'critico' ? '🔴' : '🟡'}
+                  </span>
+                  <div className="flex-1">
+                    <p
+                      className={`font-semibold text-sm ${
+                        alerta.tipo === 'critico'
+                          ? 'text-red-400'
+                          : 'text-yellow-400'
+                      }`}
+                    >
+                      {alerta.titulo}
+                    </p>
+                    <p className="text-xs text-text-muted mt-1">
+                      {alerta.descricao}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );

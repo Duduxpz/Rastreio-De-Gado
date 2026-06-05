@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Button } from './ui/Button';
 
 interface NavbarProps {
   userEmail?: string;
