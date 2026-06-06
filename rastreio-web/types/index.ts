@@ -101,15 +101,33 @@ export interface AlertWithAnimal extends Alert {
 // Recommendation Types
 // ============================================================================
 
+export type Prioridade = 'ALTA' | 'MEDIA' | 'BAIXA' | 'INFORMATIVA';
+export type RecommendationStatus = 'PENDENTE' | 'RECONHECIDA' | 'RESOLVIDA';
+
 export interface Recommendation {
   id: string;
   fazenda_id: string;
-  prioridade: number; // 1-5
-  motivo: string;
+  prioridade: Prioridade;
+  titulo: string;
+  descricao: string;
   impacto: string;
-  payload: Record<string, any>;
-  acknowledged: boolean;
+  sugestao: string;
+  analiseIA: string;
+  status: RecommendationStatus;
+  payload?: Record<string, any>;
   created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Resumen de métricas de recomendações
+ */
+export interface RecommendationMetrics {
+  total: number;
+  pendentes: number;
+  reconhecidas: number;
+  resolvidas: number;
+  altaPrioridade: number;
 }
 
 // ============================================================================

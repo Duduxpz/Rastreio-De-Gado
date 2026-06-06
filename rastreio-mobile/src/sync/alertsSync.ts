@@ -62,17 +62,18 @@ export async function syncAlertsAndRecommendations(fazendaId: string, token: str
           await recsRepo.create({
             fazenda_id: fazendaId,
             prioridade: apiRec.prioridade,
-            motivo: apiRec.motivo,
+            titulo: apiRec.titulo,
+            descricao: apiRec.descricao,
             impacto: apiRec.impacto,
+            sugestao: apiRec.sugestao,
+            analiseIA: apiRec.analiseIA,
             payload: apiRec.payload,
-            acknowledged: apiRec.acknowledged,
-            created_at: apiRec.created_at,
           });
         } else {
-          // Update acknowledged status if changed
+          // Update status if changed
           const local = localRecs.find((r) => r.id === apiRec.id);
-          if (local && local.acknowledged !== apiRec.acknowledged) {
-            await recsRepo.acknowledge(apiRec.id);
+          if (local && local.status !== apiRec.status) {
+            await recsRepo.updateStatus(apiRec.id, apiRec.status);
           }
         }
       }
@@ -118,13 +119,13 @@ export async function pushAlertsAndRecommendations(token: string) {
     const unsyncedRecs = await recsRepo.findUnsynced();
     for (const rec of unsyncedRecs) {
       try {
-        const response = await fetch('/api/recommendations', {
-          method: 'POST',
+        const response = await fetch(`/api/recommendations/${rec.id}`, {
+          method: 'PATCH',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(rec),
+          body: JSON.stringify({ status: rec.status }),
         });
 
         if (response.ok) {

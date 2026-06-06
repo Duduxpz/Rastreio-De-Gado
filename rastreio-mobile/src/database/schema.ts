@@ -69,17 +69,21 @@ export function initDatabase() {
       );`
     );
 
-    // Recommendations table
+    // Recommendations table - Updated AI structure
     tx.executeSql(
       `CREATE TABLE IF NOT EXISTS recommendations (
         id TEXT PRIMARY KEY,
         fazenda_id TEXT,
-        prioridade INTEGER DEFAULT 3,
-        motivo TEXT,
+        prioridade TEXT CHECK (prioridade IN ('ALTA','MEDIA','BAIXA','INFORMATIVA')) DEFAULT 'MEDIA',
+        titulo TEXT,
+        descricao TEXT,
         impacto TEXT,
+        sugestao TEXT,
+        analiseIA TEXT,
+        status TEXT CHECK (status IN ('PENDENTE','RECONHECIDA','RESOLVIDA')) DEFAULT 'PENDENTE',
         payload TEXT,
-        acknowledged INTEGER DEFAULT 0,
         created_at TEXT,
+        updated_at TEXT,
         synced INTEGER DEFAULT 0
       );`
     );

@@ -16,12 +16,12 @@ export function Button({
   ...props
 }: ButtonProps) {
   const baseStyles =
-    'inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+    'inline-flex items-center justify-center px-4 py-2 rounded-lg font-semibold text-sm tracking-wide transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variants = {
-    primary: 'bg-[#FF6A00] text-white hover:bg-[#FF8F3C] active:bg-[#E85D00] font-semibold shadow-[0_4px_16px_rgba(255,106,0,0.5)]',
+    primary: 'bg-cta-DEFAULT/90 text-white hover:bg-cta-DEFAULT active:bg-cta-dim shadow-[0_10px_24px_rgba(251,146,60,0.18)]',
     secondary:
-      'bg-bg-elevated text-white hover:bg-bg-border active:bg-bg-border border border-bg-border',
+      'bg-bg-elevated/80 text-white hover:bg-bg-elevated active:bg-bg-border border border-bg-border',
     danger: 'bg-red-500 text-white hover:bg-red-400 active:bg-red-600',
     ghost: 'text-text-secondary hover:bg-bg-elevated active:bg-bg-border',
   };
