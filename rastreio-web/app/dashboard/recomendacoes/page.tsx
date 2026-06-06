@@ -82,7 +82,7 @@ export default function RecomendacoesPage() {
 
       {/* Content */}
       {loading ? (
-        <LoadingState text="Carregando recomendações..." />
+        <LoadingState message="Carregando recomendações..." />
       ) : recommendations.length === 0 ? (
         <EmptyState
           title="Sem recomendações"

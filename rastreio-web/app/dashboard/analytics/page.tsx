@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAnalytics } from '@/hooks/useAnalyticsData';
-import { StatCard } from '@/components/StatCard';
+import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
-const COLORS = ['#1A7A4A', '#D97706', '#059669', '#2563EB', '#DC2626', '#F59E0B'];
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function AnalyticsPage() {
   const { snapshots, stats, loading, error, generateSnapshot } = useAnalytics({ limit: 30 });
@@ -45,7 +43,7 @@ export default function AnalyticsPage() {
       </div>
 
       {loading && !hasGenerated ? (
-        <LoadingState text="Carregando analytics..." />
+        <LoadingState message="Carregando analytics..." />
       ) : snapshots.length === 0 ? (
         <EmptyState
           title="Sem dados de analytics"
@@ -58,30 +56,26 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats && (
               <>
-                <StatCard
-                  label="Total de Animais"
-                  value={stats.totalAnimais}
-                  delta={`${stats.totalAnimais > 0 ? '+' : ''}${Math.round((stats.totalAnimais / Math.max(1, stats.totalAnimais)) * 100)}%`}
-                  deltaPositive
-                />
-                <StatCard
-                  label="Sem Pesagem Recente"
-                  value={stats.animalsSemPesagemRecente}
-                  delta={Math.round((stats.animalsSemPesagemRecente / Math.max(1, stats.totalAnimais)) * 100) + '%'}
-                  deltaPositive={false}
-                />
-                <StatCard
-                  label="Vacinações Pendentes"
-                  value={stats.vacinacoesPendentes}
-                  delta={stats.vacinacoesPendentes > 0 ? 'Atenção' : 'Ok'}
-                  deltaPositive={stats.vacinacoesPendentes === 0}
-                />
-                <StatCard
-                  label="Taxa de Saúde"
-                  value={`${stats.taxaSaude}%`}
-                  delta={stats.taxaSaude >= 80 ? 'Saudável' : 'Revisar'}
-                  deltaPositive={stats.taxaSaude >= 80}
-                />
+                <Card variant="elevated" className="p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total de Animais</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalAnimais}</p>
+                  <p className="text-xs text-gray-500 mt-1">+{Math.round((stats.totalAnimais / Math.max(1, stats.totalAnimais)) * 100)}%</p>
+                </Card>
+                <Card variant="elevated" className="p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Sem Pesagem Recente</p>
+                  <p className="text-2xl font-bold text-red-600">{stats.animalsSemPesagemRecente}</p>
+                  <p className="text-xs text-gray-500 mt-1">{Math.round((stats.animalsSemPesagemRecente / Math.max(1, stats.totalAnimais)) * 100)}%</p>
+                </Card>
+                <Card variant="elevated" className="p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Vacinações Pendentes</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.vacinacoesPendentes}</p>
+                  <p className="text-xs text-gray-500 mt-1">{stats.vacinacoesPendentes > 0 ? 'Atenção' : 'Ok'}</p>
+                </Card>
+                <Card variant="elevated" className="p-4">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Taxa de Saúde</p>
+                  <p className="text-2xl font-bold text-primary-500">{stats.taxaSaude}%</p>
+                  <p className="text-xs text-gray-500 mt-1">{stats.taxaSaude >= 80 ? 'Saudável' : 'Revisar'}</p>
+                </Card>
               </>
             )}
           </div>
