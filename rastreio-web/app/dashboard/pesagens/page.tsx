@@ -11,6 +11,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import type { Pesagem, Animal } from '@/types';
+import { Scale } from 'lucide-react';
 
 interface PesagemComAnimal extends Pesagem {
   animal?: Animal;
@@ -117,7 +118,7 @@ export default function PesagensPage() {
 
       {pesagensFiltrads.length === 0 ? (
         <EmptyState
-          icon="⚖️"
+          icon={Scale}
           title="Nenhuma pesagem encontrada"
           action={{
             label: '+ Nova Pesagem',

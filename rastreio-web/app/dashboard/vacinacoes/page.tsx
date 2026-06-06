@@ -11,6 +11,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
+import { Syringe } from 'lucide-react';
 
 interface VacinacaoLocal {
   id: string;
@@ -111,7 +112,7 @@ export default function VacinacoesPag() {
       {/* Tabela */}
       {vacinacoesFiltradas.length === 0 ? (
         <EmptyState
-          icon="💉"
+          icon={Syringe}
           title={busca ? 'Nenhuma vacinação encontrada' : 'Nenhuma vacinação registrada'}
           description="Comece registrando a primeira vacinação do rebanho"
           action={{

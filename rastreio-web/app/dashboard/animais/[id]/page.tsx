@@ -170,6 +170,8 @@ export default function AnimalDetailPage() {
     return <LoadingState />;
   }
 
+  const ultimaVacinacao = vacinacoes[0];
+
   const graficoData = pesagens
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
     .map((p) => ({
@@ -216,6 +218,20 @@ export default function AnimalDetailPage() {
                 label={animal.categoria || 'N/A'}
                 variant="info"
               />
+            </div>
+            <div>
+              <p className="text-xs text-text-muted">Última vacina</p>
+              <p className="font-semibold text-text-primary">
+                {ultimaVacinacao?.vacina || 'Nenhuma registrada'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-text-muted">Aplicação</p>
+              <p className="font-semibold text-text-primary">
+                {ultimaVacinacao?.data
+                  ? new Date(ultimaVacinacao.data).toLocaleDateString('pt-BR')
+                  : '-'}
+              </p>
             </div>
             <div>
               <p className="text-xs text-text-muted">Status</p>
