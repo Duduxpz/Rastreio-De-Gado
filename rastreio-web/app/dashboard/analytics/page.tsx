@@ -87,7 +87,7 @@ export default function AnalyticsPage() {
                 Evolução do Peso Médio
               </h3>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={snapshots.map((s, i) => ({
+                <LineChart data={snapshots.map((s) => ({
                   date: new Date(s.created_at).toLocaleDateString('pt-BR'),
                   peso: s.avg_peso,
                   animais: s.total_animais,
@@ -96,7 +96,7 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="date" fontSize={12} />
                   <YAxis fontSize={12} />
                   <Tooltip
-                    formatter={(value) => value?.toFixed(2)}
+                    formatter={(value) => typeof value === 'number' ? value.toFixed(2) : value}
                     labelStyle={{ color: '#000' }}
                   />
                   <Legend />
