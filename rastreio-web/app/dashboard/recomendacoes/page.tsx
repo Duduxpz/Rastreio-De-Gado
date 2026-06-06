@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRecommendations } from '@/hooks/useAnalyticsData';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -141,7 +141,6 @@ export default function RecomendacoesPage() {
                       <Button
                         onClick={() => acknowledge(rec.id)}
                         variant="secondary"
-                        size="sm"
                       >
                         Reconhecer
                       </Button>
