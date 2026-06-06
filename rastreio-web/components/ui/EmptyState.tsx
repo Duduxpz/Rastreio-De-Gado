@@ -1,5 +1,7 @@
+import type { LucideIcon } from 'lucide-react';
+
 interface EmptyStateProps {
-  icon?: string;
+  icon?: string | LucideIcon;
   title: string;
   description?: string;
   action?: {
@@ -14,9 +16,16 @@ export function EmptyState({
   description,
   action,
 }: EmptyStateProps) {
+  const isStringIcon = typeof icon === 'string';
+  const Icon = !isStringIcon ? (icon as LucideIcon) : null;
+
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="text-5xl mb-4">{icon}</div>
+      {isStringIcon ? (
+        <div className="text-5xl mb-4">{icon}</div>
+      ) : (
+        Icon && <Icon size={48} className="text-text-muted mb-4" />
+      )}
       <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
       {description && (
         <p className="text-text-muted mb-6 max-w-sm">{description}</p>
