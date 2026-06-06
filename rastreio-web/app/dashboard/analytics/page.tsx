@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAnalytics } from '@/hooks/useAnalyticsData';
-import StatCard from '@/components/StatCard';
-import PageHeader from '@/components/ui/PageHeader';
-import Button from '@/components/ui/Button';
-import LoadingState from '@/components/ui/LoadingState';
-import EmptyState from '@/components/ui/EmptyState';
+import { StatCard } from '@/components/StatCard';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['#1A7A4A', '#D97706', '#059669', '#2563EB', '#DC2626', '#F59E0B'];

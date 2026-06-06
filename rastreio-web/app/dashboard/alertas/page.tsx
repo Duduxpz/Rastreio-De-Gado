@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useAlerts } from '@/hooks/useAnalyticsData';
-import Card from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import PageHeader from '@/components/ui/PageHeader';
-import EmptyState from '@/components/ui/EmptyState';
-import Button from '@/components/ui/Button';
-import LoadingState from '@/components/ui/LoadingState';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { gerarAlertas, type Alerta } from '@/utils/gerarAlertas';
 
 type AlertNivel = 'INFO' | 'WARNING' | 'CRITICAL';
@@ -48,30 +48,34 @@ export default function AlertasPage() {
 
   const alertsFromApi: AlertApi[] = alertsApi || [];
 
-  // Transformar alertas da API para o formato local
-  const alertasCombinados = useApi ? alertsFromApi : alertasLocal;
+  // Use API by default, fallback to local
+  const alertsToDisplay = useApi ? alertsFromApi : alertasLocal;
 
   // Filtrar alertas
-  let alertasFiltrados = alertasCombinados;
+  let alertasFiltrados: any[] = alertsToDisplay;
 
-  if (filtroNivel) {
-    alertasFiltrados = alertasFiltrados.filter((a) =>
-      useApi ? (a as AlertApi).nivel === filtroNivel : (a as Alerta).tipo === filtroNivel
-    );
-  }
-
-  if (filtroTipo) {
-    alertasFiltrados = alertasFiltrados.filter((a) =>
-      useApi ? (a as AlertApi).tipo === filtroTipo : (a as Alerta).categoria === filtroTipo
-    );
-  }
-
-  if (useApi && filtroLida === 'lida') {
-    alertasFiltrados = alertasFiltrados.filter((a) => (a as AlertApi).lida);
-  }
-
-  if (useApi && filtroLida === 'nao-lida') {
-    alertasFiltrados = alertasFiltrados.filter((a) => !(a as AlertApi).lida);
+  if (useApi) {
+    // Filtrar alertas da API
+    if (filtroNivel) {
+      alertasFiltrados = alertasFiltrados.filter((a: AlertApi) => a.nivel === filtroNivel);
+    }
+    if (filtroTipo) {
+      alertasFiltrados = alertasFiltrados.filter((a: AlertApi) => a.tipo === filtroTipo);
+    }
+    if (filtroLida === 'lida') {
+      alertasFiltrados = alertasFiltrados.filter((a: AlertApi) => a.lida);
+    }
+    if (filtroLida === 'nao-lida') {
+      alertasFiltrados = alertasFiltrados.filter((a: AlertApi) => !a.lida);
+    }
+  } else {
+    // Filtrar alertas locais
+    if (filtroNivel) {
+      alertasFiltrados = alertasFiltrados.filter((a: Alerta) => a.tipo === filtroNivel);
+    }
+    if (filtroTipo) {
+      alertasFiltrados = alertasFiltrados.filter((a: Alerta) => a.categoria === filtroTipo);
+    }
   }
 
   const countByLevel = {
