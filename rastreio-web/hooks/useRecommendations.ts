@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getSessionToken } from '@/lib/supabase';
 import type { Recommendation, RecommendationMetrics, Prioridade, RecommendationStatus } from '@/types';
 
 interface UseRecommendationsFilters {
@@ -21,7 +22,8 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = await getSessionToken();
+      if (!token) throw new Error('No session token');
       const params = new URLSearchParams();
 
       if (filters?.prioridade) params.append('prioridade', filters.prioridade);
@@ -54,7 +56,8 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
 
   const fetchMetrics = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = await getSessionToken();
+      if (!token) throw new Error('No session token');
       const response = await fetch('/api/recommendations/metrics', {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -107,7 +110,8 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
 
   const generateNewRecommendations = async (): Promise<Recommendation | null> => {
     try {
-      const token = localStorage.getItem('token');
+      const token = await getSessionToken();
+      if (!token) throw new Error('No session token');
       const response = await fetch('/api/recommendations/generate', {
         method: 'POST',
         headers: {

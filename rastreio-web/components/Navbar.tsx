@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { clearAllAppStorage } from '@/lib/session';
 
 interface NavbarProps {
   userEmail?: string;
@@ -17,6 +18,7 @@ export function Navbar({ userEmail }: NavbarProps) {
     setLoading(true);
     try {
       await supabase.auth.signOut();
+      clearAllAppStorage();
       router.push('/login');
     } finally {
       setLoading(false);
