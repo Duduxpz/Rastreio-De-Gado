@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Response } from 'express';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, verifyAnimalOwnership } from '../middleware/auth';
 import { supabase } from '../lib/supabase';
 
 const router = Router();
@@ -11,6 +11,11 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const { animal_id } = req.query;
     if (!animal_id) {
       return res.status(400).json({ error: 'animal_id is required' });
+    }
+
+    const { valid } = await verifyAnimalOwnership([animal_id as string], req.fazendaId!);
+    if (!valid) {
+      return res.status(403).json({ error: 'Unauthorized animal access' });
     }
 
     const { data, error } = await supabase
@@ -30,6 +35,16 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 // POST /api/vacinacoes
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    const { animal_id } = req.body;
+    if (!animal_id) {
+      return res.status(400).json({ error: 'animal_id is required' });
+    }
+
+    const { valid } = await verifyAnimalOwnership([animal_id as string], req.fazendaId!);
+    if (!valid) {
+      return res.status(403).json({ error: 'Unauthorized animal access' });
+    }
+
     const { data, error } = await supabase
       .from('vacinacoes')
       .insert(req.body)
