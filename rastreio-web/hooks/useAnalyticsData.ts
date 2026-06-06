@@ -58,7 +58,7 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
       });
 
       if (!response.ok) throw new Error('Failed to generate snapshot');
-      const { data, success } = await response.json();
+      const { success } = await response.json();
 
       if (success) {
         await fetchSnapshots(); // Refresh snapshots
