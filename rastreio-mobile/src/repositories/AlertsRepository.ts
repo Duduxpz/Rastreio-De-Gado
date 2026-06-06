@@ -103,21 +103,25 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
     super(db, 'recommendations');
   }
 
-  async create(rec: Omit<Recommendation, 'id'>): Promise<Recommendation> {
+  async create(rec: Omit<Recommendation, 'id' | 'created_at' | 'updated_at'>): Promise<Recommendation> {
     const id = uuidv4();
     const now = new Date().toISOString();
 
     await this.db.runAsync(
-      `INSERT INTO ${this.table} (id, fazenda_id, prioridade, motivo, impacto, payload, acknowledged, created_at, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO ${this.table} (id, fazenda_id, prioridade, titulo, descricao, impacto, sugestao, analiseIA, status, payload, created_at, updated_at, synced)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         rec.fazenda_id,
         rec.prioridade,
-        rec.motivo,
+        rec.titulo,
+        rec.descricao,
         rec.impacto,
+        rec.sugestao,
+        rec.analiseIA,
+        'PENDENTE',
         rec.payload ? JSON.stringify(rec.payload) : null,
-        0, // false
+        now,
         now,
         0, // not synced
       ]
@@ -126,34 +130,35 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
     return {
       ...rec,
       id,
+      status: 'PENDENTE',
       created_at: now,
+      updated_at: now,
       synced: 0,
-      acknowledged: false,
     };
   }
 
   async findByFazenda(fazendaId: string): Promise<Recommendation[]> {
     const rows = await this.db.getAllAsync<any>(
-      `SELECT * FROM ${this.table} WHERE fazenda_id = ? ORDER BY prioridade ASC, created_at DESC`,
+      `SELECT * FROM ${this.table} WHERE fazenda_id = ? ORDER BY prioridade DESC, created_at DESC`,
       [fazendaId]
     );
 
     return rows.map((row) => this.parseRecommendation(row));
   }
 
-  async findUnacknowledged(fazendaId: string): Promise<Recommendation[]> {
+  async findByStatus(fazendaId: string, status: string): Promise<Recommendation[]> {
     const rows = await this.db.getAllAsync<any>(
-      `SELECT * FROM ${this.table} WHERE fazenda_id = ? AND acknowledged = 0 ORDER BY prioridade ASC`,
-      [fazendaId]
+      `SELECT * FROM ${this.table} WHERE fazenda_id = ? AND status = ? ORDER BY prioridade DESC`,
+      [fazendaId, status]
     );
 
     return rows.map((row) => this.parseRecommendation(row));
   }
 
-  async acknowledge(id: string): Promise<void> {
+  async updateStatus(id: string, status: 'PENDENTE' | 'RECONHECIDA' | 'RESOLVIDA'): Promise<void> {
     await this.db.runAsync(
-      `UPDATE ${this.table} SET acknowledged = 1 WHERE id = ?`,
-      [id]
+      `UPDATE ${this.table} SET status = ?, updated_at = ? WHERE id = ?`,
+      [status, new Date().toISOString(), id]
     );
   }
 
@@ -178,11 +183,15 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
       id: row.id,
       fazenda_id: row.fazenda_id,
       prioridade: row.prioridade,
-      motivo: row.motivo,
+      titulo: row.titulo,
+      descricao: row.descricao,
       impacto: row.impacto,
+      sugestao: row.sugestao,
+      analiseIA: row.analiseIA,
+      status: row.status || 'PENDENTE',
       payload: row.payload ? JSON.parse(row.payload) : undefined,
-      acknowledged: !!row.acknowledged,
       created_at: row.created_at,
+      updated_at: row.updated_at,
       synced: row.synced,
     };
   }

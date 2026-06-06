@@ -1,64 +1,76 @@
 'use client';
 
 import { useState } from 'react';
-import { useRecommendations } from '@/hooks/useAnalyticsData';
+import { useRecommendations } from '@/hooks/useRecommendations';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Card } from '@/components/ui/Card';
-
-const PRIORIDADE_MAP: Record<number, { label: string; color: string }> = {
-  1: { label: 'Crítica', color: 'text-red-700 bg-red-50 border-red-200' },
-  2: { label: 'Alta', color: 'text-orange-700 bg-orange-50 border-orange-200' },
-  3: { label: 'Média', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
-  4: { label: 'Baixa', color: 'text-blue-700 bg-blue-50 border-blue-200' },
-  5: { label: 'Informativa', color: 'text-gray-700 bg-gray-50 border-gray-200' },
-};
+import { RecommendationCard } from '@/components/RecommendationCard';
+import { RecommendationMetrics } from '@/components/RecommendationMetrics';
+import type { Prioridade, RecommendationStatus } from '@/types';
 
 export default function RecomendacoesPage() {
-  const [prioridade, setPrioridade] = useState<number | undefined>(undefined);
-  const [acknowledged, setAcknowledged] = useState<boolean | undefined>(undefined);
+  const [prioridade, setPrioridade] = useState<Prioridade | undefined>(undefined);
+  const [status, setStatus] = useState<RecommendationStatus | undefined>(undefined);
+  const [generatingNew, setGeneratingNew] = useState(false);
 
-  const { recommendations, loading, error, acknowledge } = useRecommendations({
+  const {
+    recommendations,
+    metrics,
+    loading,
+    error,
+    updateStatus,
+    generateNewRecommendations,
+  } = useRecommendations({
     prioridade,
-    acknowledged,
-    limit: 50,
+    status,
+    limit: 100,
   });
 
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Recomendações" />
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          {error}
-        </div>
-      </div>
-    );
-  }
+  const handleGenerateNew = async () => {
+    setGeneratingNew(true);
+    try {
+      await generateNewRecommendations();
+    } finally {
+      setGeneratingNew(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Recomendações Inteligentes" />
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <PageHeader title="Centro Inteligente de Insights Pecuários" />
+        <Button
+          onClick={handleGenerateNew}
+          disabled={generatingNew || loading}
+          className="flex-shrink-0"
+        >
+          {generatingNew ? 'Gerando...' : '🤖 Gerar Insights'}
+        </Button>
+      </div>
+
+      {/* Métricas */}
+      {metrics && <RecommendationMetrics metrics={metrics} />}
 
       {/* Filtros */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Prioridade
             </label>
             <select
-              value={prioridade?.toString() || ''}
-              onChange={(e) => setPrioridade(e.target.value ? Number(e.target.value) : undefined)}
+              value={prioridade || ''}
+              onChange={(e) => setPrioridade((e.target.value as Prioridade) || undefined)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="">Todas</option>
-              <option value="1">Crítica</option>
-              <option value="2">Alta</option>
-              <option value="3">Média</option>
-              <option value="4">Baixa</option>
-              <option value="5">Informativa</option>
+              <option value="ALTA">Alta</option>
+              <option value="MEDIA">Média</option>
+              <option value="BAIXA">Baixa</option>
+              <option value="INFORMATIVA">Informativa</option>
             </select>
           </div>
           <div>
@@ -66,95 +78,60 @@ export default function RecomendacoesPage() {
               Status
             </label>
             <select
-              value={acknowledged === undefined ? '' : acknowledged ? 'true' : 'false'}
-              onChange={(e) =>
-                setAcknowledged(e.target.value === '' ? undefined : e.target.value === 'true')
-              }
+              value={status || ''}
+              onChange={(e) => setStatus((e.target.value as RecommendationStatus) || undefined)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
-              <option value="">Todas</option>
-              <option value="false">Não Reconhecidas</option>
-              <option value="true">Reconhecidas</option>
+              <option value="">Todos</option>
+              <option value="PENDENTE">Pendente</option>
+              <option value="RECONHECIDA">Reconhecida</option>
+              <option value="RESOLVIDA">Resolvida</option>
             </select>
+          </div>
+          <div className="flex items-end">
+            <Button
+              onClick={() => {
+                setPrioridade(undefined);
+                setStatus(undefined);
+              }}
+              variant="secondary"
+              className="w-full"
+            >
+              Limpar Filtros
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Conteúdo */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-800 font-medium">Erro ao carregar recomendações</p>
+          <p className="text-red-700 text-sm">{error}</p>
+        </div>
+      )}
+
       {loading ? (
-        <LoadingState message="Carregando recomendações..." />
+        <LoadingState message="Carregando insights inteligentes..." />
       ) : recommendations.length === 0 ? (
         <EmptyState
-          title="Sem recomendações"
-          description="Parabéns! Seu rebanho está funcionando bem. Não há recomendações no momento."
+          title="Nenhuma recomendação no momento"
+          description="Parabéns! Seu rebanho está funcionando bem. Clique em 'Gerar Insights' para buscar novas recomendações."
         />
       ) : (
         <div className="space-y-4">
-          {recommendations.map((rec) => {
-            const prioridadeInfo = PRIORIDADE_MAP[rec.prioridade] || PRIORIDADE_MAP[3];
-            return (
-              <Card key={rec.id} variant="bordered">
-                <div className="flex flex-col md:flex-row md:items-start gap-4">
-                  {/* Badge de Prioridade */}
-                  <div
-                    className={`px-3 py-2 rounded-md text-sm font-semibold whitespace-nowrap ${prioridadeInfo.color}`}
-                  >
-                    {prioridadeInfo.label}
-                  </div>
-
-                  {/* Conteúdo */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 break-words">
-                      {rec.motivo}
-                    </h3>
-                    <p className="text-gray-600 mt-2">{rec.impacto}</p>
-
-                    {/* Detalhes do payload se existir */}
-                    {rec.payload && Object.keys(rec.payload).length > 0 && (
-                      <div className="mt-3 bg-gray-50 rounded p-3 text-sm text-gray-700">
-                        <details>
-                          <summary className="font-medium cursor-pointer">
-                            Detalhes Técnicos
-                          </summary>
-                          <pre className="mt-2 text-xs overflow-x-auto">
-                            {JSON.stringify(rec.payload, null, 2)}
-                          </pre>
-                        </details>
-                      </div>
-                    )}
-
-                    {/* Data */}
-                    <div className="mt-3 text-xs text-gray-500">
-                      {new Date(rec.created_at).toLocaleDateString('pt-BR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Ações */}
-                  <div className="flex flex-col gap-2 md:flex-row">
-                    {!rec.acknowledged && (
-                      <Button
-                        onClick={() => acknowledge(rec.id)}
-                        variant="secondary"
-                      >
-                        Reconhecer
-                      </Button>
-                    )}
-                    {rec.acknowledged && (
-                      <span className="px-3 py-2 text-sm font-medium text-green-700 bg-green-50 rounded-md">
-                        ✓ Reconhecida
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+          <p className="text-sm text-gray-600">
+            Mostrando <strong>{recommendations.length}</strong> recomendação
+            {recommendations.length !== 1 ? 's' : ''}
+          </p>
+          {recommendations.map((rec) => (
+            <RecommendationCard
+              key={rec.id}
+              recommendation={rec}
+              onStatusChange={updateStatus}
+              loading={loading}
+            />
+          ))}
         </div>
       )}
     </div>

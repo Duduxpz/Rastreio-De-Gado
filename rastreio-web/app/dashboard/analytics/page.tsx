@@ -10,24 +10,13 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function AnalyticsPage() {
-  const { snapshots, stats, loading, error, generateSnapshot } = useAnalytics({ limit: 30 });
+  const { snapshots, stats, loading, generateSnapshot } = useAnalytics({ limit: 30 });
   const [hasGenerated, setHasGenerated] = useState(false);
 
   const handleGenerateSnapshot = async () => {
     await generateSnapshot();
     setHasGenerated(true);
   };
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="Analytics" />
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          {error}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

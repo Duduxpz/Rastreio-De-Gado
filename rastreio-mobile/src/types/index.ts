@@ -1,6 +1,8 @@
 export type Sexo = 'M' | 'F';
 export type Categoria = 'bezerro' | 'novilha' | 'vaca' | 'touro' | 'boi' | 'outro';
 export type Plano = 'starter' | 'fazenda' | 'enterprise';
+export type Prioridade = 'ALTA' | 'MEDIA' | 'BAIXA' | 'INFORMATIVA';
+export type RecommendationStatus = 'PENDENTE' | 'RECONHECIDA' | 'RESOLVIDA';
 
 export interface Animal {
   id: string;
@@ -41,11 +43,28 @@ export interface Pesagem {
   synced?: 0 | 1;
 }
 
+export interface Recommendation {
+  id: string;
+  fazenda_id: string;
+  prioridade: Prioridade;
+  titulo: string;
+  descricao: string;
+  impacto: string;
+  sugestao: string;
+  analiseIA: string;
+  status: RecommendationStatus;
+  payload?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  synced?: 0 | 1;
+}
+
 export interface SyncPayload {
   fazenda_id: string;
   animais: Animal[];
   vacinacoes: Vacinacao[];
   pesagens: Pesagem[];
+  recomendacoes?: Recommendation[];
 }
 
 // ============================================================================
