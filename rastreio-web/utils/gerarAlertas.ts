@@ -1,5 +1,3 @@
-import type { Animal, Vacinacao, Pesagem } from '@/types';
-
 export interface Alerta {
   id: string;
   tipo: 'critico' | 'aviso';
