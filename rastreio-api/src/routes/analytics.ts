@@ -29,7 +29,7 @@ router.get('/overview', authMiddleware, async (req: AuthRequest, res) => {
         .select('*')
         .in('animal_id', animalIds);
       if (errP) throw errP;
-      pesagens = p;
+      pesagens = (p || []) as any[];
     }
 
     // Fetch vacinacoes for these animals
@@ -40,7 +40,7 @@ router.get('/overview', authMiddleware, async (req: AuthRequest, res) => {
         .select('*')
         .in('animal_id', animalIds);
       if (errV) throw errV;
-      vacinacoes = v;
+      vacinacoes = (v || []) as any[];
     }
 
     // Compute last weighing per animal
@@ -160,14 +160,14 @@ router.post('/snapshot', authMiddleware, async (req: AuthRequest, res) => {
         .select('*')
         .in('animal_id', animalIds);
       if (errP) throw errP;
-      pesagens = p;
+      pesagens = (p as any[]) || [];
 
       const { data: v = [], error: errV } = await supabase
         .from('vacinacoes')
         .select('*')
         .in('animal_id', animalIds);
       if (errV) throw errV;
-      vacinacoes = v;
+      vacinacoes = (v as any[]) || [];
     }
 
     // Computations
