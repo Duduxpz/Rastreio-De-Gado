@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRecommendations } from '@/hooks/useAnalyticsData';
-import PageHeader from '@/components/ui/PageHeader';
-import Button from '@/components/ui/Button';
-import LoadingState from '@/components/ui/LoadingState';
-import EmptyState from '@/components/ui/EmptyState';
-import Card from '@/components/ui/Card';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Button } from '@/components/ui/Button';
+import { LoadingState } from '@/components/ui/LoadingState';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Card } from '@/components/ui/Card';
 
 const PRIORIDADE_MAP: Record<number, { label: string; color: string }> = {
   1: { label: 'Crítica', color: 'text-red-700 bg-red-50 border-red-200' },
@@ -93,7 +93,7 @@ export default function RecomendacoesPage() {
           {recommendations.map((rec) => {
             const prioridadeInfo = PRIORIDADE_MAP[rec.prioridade] || PRIORIDADE_MAP[3];
             return (
-              <Card key={rec.id} variant="outlined">
+              <Card key={rec.id} variant="bordered">
                 <div className="flex flex-col md:flex-row md:items-start gap-4">
                   {/* Badge de Prioridade */}
                   <div
