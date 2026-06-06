@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Sprout, Syringe, Scale,
-  FileText, Bell, Settings, ChevronRight
+  FileText, Bell, Settings, ChevronRight, TrendingUp, Lightbulb
 } from 'lucide-react';
 
 const nav = [
@@ -11,8 +11,10 @@ const nav = [
   { href: '/dashboard/animais',       icon: Sprout,             label: 'Animais'     },
   { href: '/dashboard/vacinacoes',icon: Syringe,         label: 'Vacinações'  },
   { href: '/dashboard/pesagens',  icon: Scale,           label: 'Pesagens'    },
+  { href: '/dashboard/analytics', icon: TrendingUp,      label: 'Analytics'   },
   { href: '/dashboard/relatorios',icon: FileText,        label: 'Relatórios'  },
   { href: '/dashboard/alertas',   icon: Bell,            label: 'Alertas'     },
+  { href: '/dashboard/recomendacoes', icon: Lightbulb,   label: 'Recomendações' },
 ];
 
 export function Sidebar() {

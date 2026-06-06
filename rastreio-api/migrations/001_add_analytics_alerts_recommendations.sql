@@ -58,3 +58,117 @@ CREATE TABLE IF NOT EXISTS automations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_automations_fazenda ON automations (fazenda_id);
+
+-- ============================================================================
+-- ROW LEVEL SECURITY (RLS) POLICIES
+-- ============================================================================
+
+-- Enable RLS on all new tables
+ALTER TABLE analytics_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recommendations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE automations ENABLE ROW LEVEL SECURITY;
+
+-- ANALYTICS_SNAPSHOTS: SELECT by fazenda owner, INSERT/UPDATE by service role
+CREATE POLICY "rls_analytics_snapshots_select" 
+  ON analytics_snapshots 
+  FOR SELECT 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "rls_analytics_snapshots_insert" 
+  ON analytics_snapshots 
+  FOR INSERT 
+  WITH CHECK (true); -- Service role only
+
+-- ALERTS: SELECT/UPDATE by fazenda owner
+CREATE POLICY "rls_alerts_select" 
+  ON alerts 
+  FOR SELECT 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "rls_alerts_insert" 
+  ON alerts 
+  FOR INSERT 
+  WITH CHECK (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "rls_alerts_update" 
+  ON alerts 
+  FOR UPDATE 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+-- RECOMMENDATIONS: SELECT by fazenda owner
+CREATE POLICY "rls_recommendations_select" 
+  ON recommendations 
+  FOR SELECT 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "rls_recommendations_insert" 
+  ON recommendations 
+  FOR INSERT 
+  WITH CHECK (true); -- Service role only
+
+CREATE POLICY "rls_recommendations_update" 
+  ON recommendations 
+  FOR UPDATE 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+-- AUTOMATIONS: CRUD by fazenda owner
+CREATE POLICY "rls_automations_select" 
+  ON automations 
+  FOR SELECT 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "rls_automations_insert" 
+  ON automations 
+  FOR INSERT 
+  WITH CHECK (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "rls_automations_update" 
+  ON automations 
+  FOR UPDATE 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "rls_automations_delete" 
+  ON automations 
+  FOR DELETE 
+  USING (
+    fazenda_id IN (
+      SELECT id FROM fazendas WHERE owner_id = auth.uid()
+    )
+  );

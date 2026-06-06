@@ -8,6 +8,8 @@ import vacinacoesRouter from './routes/vacinacoes.js';
 import pesagensRouter from './routes/pesagens.js';
 import syncRouter from './routes/sync.js';
 import analyticsRouter from './routes/analytics.js';
+import alertsRouter from './routes/alerts.js';
+import recommendationsRouter from './routes/recommendations.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -29,6 +31,8 @@ app.use('/api/vacinacoes', vacinacoesRouter);
 app.use('/api/pesagens', pesagensRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/analytics', analyticsRouter);
+app.use('/api/alerts', alertsRouter);
+app.use('/api/recommendations', recommendationsRouter);
 
 // Health check
 app.get('/health', (req, res) => {

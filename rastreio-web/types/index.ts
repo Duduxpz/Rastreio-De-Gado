@@ -45,3 +45,94 @@ export interface Fazenda {
   plano: 'starter' | 'fazenda' | 'enterprise';
   created_at: string;
 }
+
+// ============================================================================
+// Analytics Types
+// ============================================================================
+
+export interface AnalyticsSnapshot {
+  id: string;
+  fazenda_id: string;
+  total_animais: number;
+  animais_sem_pesagem_recente: number;
+  vacinacoes_pendentes: number;
+  rebanho_score: number;
+  avg_peso: number;
+  payload: Record<string, any>;
+  created_at: string;
+}
+
+export interface AnalyticsStats {
+  totalAnimais: number;
+  animalsSemPesagemRecente: number;
+  vacinacoesPendentes: number;
+  rebanhoPorCategoria: Record<Categoria, number>;
+  pesoBaixoAnimais: number;
+  taxaSaude: number;
+  evolucaoPesoMes: Array<{ data: string; pesoMedio: number }>;
+}
+
+// ============================================================================
+// Alert Types
+// ============================================================================
+
+export type AlertNivel = 'INFO' | 'WARNING' | 'CRITICAL';
+export type AlertTipo = 'vacinacao' | 'pesagem' | 'animal' | 'sistema';
+
+export interface Alert {
+  id: string;
+  fazenda_id: string;
+  tipo: AlertTipo;
+  nivel: AlertNivel;
+  titulo: string;
+  descricao: string;
+  data?: Record<string, any>;
+  lida: boolean;
+  arquivada: boolean;
+  created_at: string;
+}
+
+export interface AlertWithAnimal extends Alert {
+  animalBrinco?: string;
+  animalId?: string;
+}
+
+// ============================================================================
+// Recommendation Types
+// ============================================================================
+
+export interface Recommendation {
+  id: string;
+  fazenda_id: string;
+  prioridade: number; // 1-5
+  motivo: string;
+  impacto: string;
+  payload: Record<string, any>;
+  acknowledged: boolean;
+  created_at: string;
+}
+
+// ============================================================================
+// Automation Types
+// ============================================================================
+
+export interface Automation {
+  id: string;
+  fazenda_id: string;
+  nome: string;
+  trigger: Record<string, any>;
+  actions: Record<string, any>;
+  enabled: boolean;
+  created_at: string;
+}
+
+// ============================================================================
+// API Response Types
+// ============================================================================
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}

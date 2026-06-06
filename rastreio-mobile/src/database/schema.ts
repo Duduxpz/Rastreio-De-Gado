@@ -52,6 +52,38 @@ export function initDatabase() {
       );`
     );
 
+    // Alerts table
+    tx.executeSql(
+      `CREATE TABLE IF NOT EXISTS alerts (
+        id TEXT PRIMARY KEY,
+        fazenda_id TEXT,
+        tipo TEXT,
+        nivel TEXT CHECK (nivel IN ('INFO','WARNING','CRITICAL')) DEFAULT 'INFO',
+        titulo TEXT,
+        descricao TEXT,
+        data TEXT,
+        lida INTEGER DEFAULT 0,
+        arquivada INTEGER DEFAULT 0,
+        created_at TEXT,
+        synced INTEGER DEFAULT 0
+      );`
+    );
+
+    // Recommendations table
+    tx.executeSql(
+      `CREATE TABLE IF NOT EXISTS recommendations (
+        id TEXT PRIMARY KEY,
+        fazenda_id TEXT,
+        prioridade INTEGER DEFAULT 3,
+        motivo TEXT,
+        impacto TEXT,
+        payload TEXT,
+        acknowledged INTEGER DEFAULT 0,
+        created_at TEXT,
+        synced INTEGER DEFAULT 0
+      );`
+    );
+
     // Queue table for sync
     tx.executeSql(
       `CREATE TABLE IF NOT EXISTS sync_queue (
