@@ -7,7 +7,7 @@ import {
   AIProvider,
   AIInsight,
   AIAnalysisContext,
-} from './providers/AIProvider';
+} from './AIProvider';
 
 export class ClaudeProvider implements AIProvider {
   private apiKey: string;

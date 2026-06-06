@@ -9,13 +9,13 @@ import { Button } from '../../components/ui/Button';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { colors, spacing, typography } from '../../constants';
-import type { Categoria } from '../../src/validators/animal';
+import type { Categoria } from '../../src/types';
 
 const categorias: Categoria[] = ['bezerro', 'novilha', 'vaca', 'touro', 'boi', 'outro'];
 
 export default function AnimaisScreen() {
   const router = useRouter();
-  const { animais, loading, refresh } = useAnimais();
+  const { animais, loading } = useAnimais();
   const { running: syncRunning, lastRun, processNow } = useSync({ intervalMs: 30000 });
   const [search, setSearch] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState<Categoria | ''>('');

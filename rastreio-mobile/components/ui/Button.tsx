@@ -28,7 +28,7 @@ export function Button({
   loading,
   disabled,
   fullWidth,
-}: readonly ButtonProps) {
+}: ButtonProps) {
   const s = variantStyles[variant];
   return (
     <TouchableOpacity

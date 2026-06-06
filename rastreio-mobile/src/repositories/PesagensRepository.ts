@@ -4,7 +4,7 @@ import { db } from '../database/schema';
 
 export class PesagensRepository extends BaseRepository<Pesagem> {
   constructor() {
-    super('pesagens');
+    super(db, 'pesagens');
   }
 
   listByAnimal(animalId: string): Promise<Pesagem[]> {

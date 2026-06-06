@@ -8,11 +8,49 @@ export class AlertsRepository extends BaseRepository<Alert> {
     super(db, 'alerts');
   }
 
+  private executeSql<T>(sql: string, params: any[] = []): Promise<T[]> {
+    return new Promise((resolve, reject) => {
+      this.db.transaction((tx) => {
+        tx.executeSql(
+          sql,
+          params,
+          (_, result) => {
+            const items: T[] = [];
+            for (let i = 0; i < result.rows.length; i += 1) {
+              items.push(result.rows.item(i) as T);
+            }
+            resolve(items);
+          },
+          (_, error) => {
+            reject(error);
+            return false;
+          }
+        );
+      });
+    });
+  }
+
+  private runSql(sql: string, params: any[] = []): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.transaction((tx) => {
+        tx.executeSql(
+          sql,
+          params,
+          () => resolve(),
+          (_, error) => {
+            reject(error);
+            return false;
+          }
+        );
+      });
+    });
+  }
+
   async create(alert: Omit<Alert, 'id'>): Promise<Alert> {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    await this.db.runAsync(
+    await this.runSql(
       `INSERT INTO ${this.table} (id, fazenda_id, tipo, nivel, titulo, descricao, data, lida, arquivada, created_at, synced)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -23,10 +61,10 @@ export class AlertsRepository extends BaseRepository<Alert> {
         alert.titulo,
         alert.descricao,
         alert.data ? JSON.stringify(alert.data) : null,
-        0, // false
-        0, // false
+        0,
+        0,
         now,
-        0, // not synced
+        0,
       ]
     );
 
@@ -34,7 +72,7 @@ export class AlertsRepository extends BaseRepository<Alert> {
   }
 
   async findByFazenda(fazendaId: string): Promise<Alert[]> {
-    const rows = await this.db.getAllAsync<any>(
+    const rows = await this.executeSql<any>(
       `SELECT * FROM ${this.table} WHERE fazenda_id = ? ORDER BY created_at DESC`,
       [fazendaId]
     );
@@ -43,7 +81,7 @@ export class AlertsRepository extends BaseRepository<Alert> {
   }
 
   async findUnread(fazendaId: string): Promise<Alert[]> {
-    const rows = await this.db.getAllAsync<any>(
+    const rows = await this.executeSql<any>(
       `SELECT * FROM ${this.table} WHERE fazenda_id = ? AND lida = 0 ORDER BY created_at DESC`,
       [fazendaId]
     );
@@ -52,33 +90,20 @@ export class AlertsRepository extends BaseRepository<Alert> {
   }
 
   async markAsRead(id: string): Promise<void> {
-    await this.db.runAsync(
-      `UPDATE ${this.table} SET lida = 1 WHERE id = ?`,
-      [id]
-    );
+    await this.runSql(`UPDATE ${this.table} SET lida = 1 WHERE id = ?`, [id]);
   }
 
   async markAsArchived(id: string): Promise<void> {
-    await this.db.runAsync(
-      `UPDATE ${this.table} SET arquivada = 1 WHERE id = ?`,
-      [id]
-    );
+    await this.runSql(`UPDATE ${this.table} SET arquivada = 1 WHERE id = ?`, [id]);
   }
 
   async findUnsynced(): Promise<Alert[]> {
-    const rows = await this.db.getAllAsync<any>(
-      `SELECT * FROM ${this.table} WHERE synced = 0`,
-      []
-    );
-
+    const rows = await this.executeSql<any>(`SELECT * FROM ${this.table} WHERE synced = 0`, []);
     return rows.map((row) => this.parseAlert(row));
   }
 
   async markSynced(id: string): Promise<void> {
-    await this.db.runAsync(
-      `UPDATE ${this.table} SET synced = 1 WHERE id = ?`,
-      [id]
-    );
+    await this.runSql(`UPDATE ${this.table} SET synced = 1 WHERE id = ?`, [id]);
   }
 
   private parseAlert(row: any): Alert {
@@ -103,11 +128,49 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
     super(db, 'recommendations');
   }
 
+  private executeSql<T>(sql: string, params: any[] = []): Promise<T[]> {
+    return new Promise((resolve, reject) => {
+      this.db.transaction((tx) => {
+        tx.executeSql(
+          sql,
+          params,
+          (_, result) => {
+            const items: T[] = [];
+            for (let i = 0; i < result.rows.length; i += 1) {
+              items.push(result.rows.item(i) as T);
+            }
+            resolve(items);
+          },
+          (_, error) => {
+            reject(error);
+            return false;
+          }
+        );
+      });
+    });
+  }
+
+  private runSql(sql: string, params: any[] = []): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.db.transaction((tx) => {
+        tx.executeSql(
+          sql,
+          params,
+          () => resolve(),
+          (_, error) => {
+            reject(error);
+            return false;
+          }
+        );
+      });
+    });
+  }
+
   async create(rec: Omit<Recommendation, 'id' | 'created_at' | 'updated_at'>): Promise<Recommendation> {
     const id = uuidv4();
     const now = new Date().toISOString();
 
-    await this.db.runAsync(
+    await this.runSql(
       `INSERT INTO ${this.table} (id, fazenda_id, prioridade, titulo, descricao, impacto, sugestao, analiseIA, status, payload, created_at, updated_at, synced)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -123,7 +186,7 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
         rec.payload ? JSON.stringify(rec.payload) : null,
         now,
         now,
-        0, // not synced
+        0,
       ]
     );
 
@@ -138,7 +201,7 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
   }
 
   async findByFazenda(fazendaId: string): Promise<Recommendation[]> {
-    const rows = await this.db.getAllAsync<any>(
+    const rows = await this.executeSql<any>(
       `SELECT * FROM ${this.table} WHERE fazenda_id = ? ORDER BY prioridade DESC, created_at DESC`,
       [fazendaId]
     );
@@ -147,7 +210,7 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
   }
 
   async findByStatus(fazendaId: string, status: string): Promise<Recommendation[]> {
-    const rows = await this.db.getAllAsync<any>(
+    const rows = await this.executeSql<any>(
       `SELECT * FROM ${this.table} WHERE fazenda_id = ? AND status = ? ORDER BY prioridade DESC`,
       [fazendaId, status]
     );
@@ -156,26 +219,16 @@ export class RecommendationsRepository extends BaseRepository<Recommendation> {
   }
 
   async updateStatus(id: string, status: 'PENDENTE' | 'RECONHECIDA' | 'RESOLVIDA'): Promise<void> {
-    await this.db.runAsync(
-      `UPDATE ${this.table} SET status = ?, updated_at = ? WHERE id = ?`,
-      [status, new Date().toISOString(), id]
-    );
+    await this.runSql(`UPDATE ${this.table} SET status = ?, updated_at = ? WHERE id = ?`, [status, new Date().toISOString(), id]);
   }
 
   async findUnsynced(): Promise<Recommendation[]> {
-    const rows = await this.db.getAllAsync<any>(
-      `SELECT * FROM ${this.table} WHERE synced = 0`,
-      []
-    );
-
+    const rows = await this.executeSql<any>(`SELECT * FROM ${this.table} WHERE synced = 0`, []);
     return rows.map((row) => this.parseRecommendation(row));
   }
 
   async markSynced(id: string): Promise<void> {
-    await this.db.runAsync(
-      `UPDATE ${this.table} SET synced = 1 WHERE id = ?`,
-      [id]
-    );
+    await this.runSql(`UPDATE ${this.table} SET synced = 1 WHERE id = ?`, [id]);
   }
 
   private parseRecommendation(row: any): Recommendation {

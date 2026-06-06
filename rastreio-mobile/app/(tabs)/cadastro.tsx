@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { colors, spacing, typography } from '../../constants';
+import { colors, spacing } from '../../constants';
 import { animalSchema, type AnimalFormValues } from '../../src/validators/animal';
 import { useAnimais } from '../../src/hooks/useAnimais';
 
@@ -38,7 +38,10 @@ export default function CadastroScreen() {
       return;
     }
 
-    await create(parsed.data);
+    await create({
+      ...parsed.data,
+      peso_atual: parsed.data.peso_atual ? Number(parsed.data.peso_atual) : undefined,
+    });
     router.back();
   }
 

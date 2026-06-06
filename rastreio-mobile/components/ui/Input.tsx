@@ -8,7 +8,7 @@ interface InputProps extends TextInputProps {
   readonly hint?: string;
 }
 
-export function Input({ label, error, hint, ...props }: readonly InputProps) {
+export function Input({ label, error, hint, ...props }: InputProps) {
   const [focused, setFocused] = useState(false);
   const borderColorIfError = colors.danger;
   const borderColorIfFocused = colors.primary;

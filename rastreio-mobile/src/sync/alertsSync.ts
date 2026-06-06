@@ -1,6 +1,5 @@
 import { db } from '../database/schema';
 import { AlertsRepository, RecommendationsRepository } from '../repositories/AlertsRepository';
-import { apiFetch } from '../services/api';
 
 /**
  * Sync alerts and recommendations from API to local SQLite
@@ -67,6 +66,7 @@ export async function syncAlertsAndRecommendations(fazendaId: string, token: str
             impacto: apiRec.impacto,
             sugestao: apiRec.sugestao,
             analiseIA: apiRec.analiseIA,
+            status: apiRec.status || 'PENDENTE',
             payload: apiRec.payload,
           });
         } else {

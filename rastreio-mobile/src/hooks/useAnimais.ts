@@ -18,12 +18,14 @@ export function useAnimais() {
     }
   }
 
-  async function create(animal: Omit<Animal, 'id' | 'updated_at' | 'synced'>) {
+  async function create(animal: Omit<Animal, 'id' | 'updated_at' | 'synced' | 'fazenda_id' | 'ativo'>) {
     const item: Animal = {
       ...animal,
       id: uuidv4(),
       updated_at: new Date().toISOString(),
       synced: 0,
+      fazenda_id: '',
+      ativo: true,
     } as Animal;
     await animaisRepo.create(item);
     // enqueue push to sync endpoint

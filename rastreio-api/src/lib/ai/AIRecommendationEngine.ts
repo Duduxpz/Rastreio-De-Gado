@@ -3,7 +3,7 @@
  * Gera insights automáticos a partir de dados do rebanho
  */
 
-import { AIProvider, AIInsight, AIAnalysisContext, Prioridade } from './AIProvider';
+import { AIProvider, AIInsight, AIAnalysisContext, Prioridade } from './providers/AIProvider';
 
 export class AIRecommendationEngine {
   constructor(private provider: AIProvider) {}
@@ -35,7 +35,7 @@ export class AIRecommendationEngine {
    */
   private async analisarVacinacao(context: AIAnalysisContext): Promise<AIInsight | null> {
     const { animais, vacinacoes } = context;
-    const vacinasVencidas = vacinacoes.filter((v) => {
+    const vacinasVencidas = vacinacoes.filter((v: any) => {
       if (v.proxima_dose && new Date(v.proxima_dose) < new Date()) {
         return true;
       }
@@ -43,7 +43,7 @@ export class AIRecommendationEngine {
     });
 
     const animaisSemVacina = animais.filter(
-      (a) => !vacinacoes.some((v) => v.animal_id === a.id)
+      (a: any) => !vacinacoes.some((v: any) => v.animal_id === a.id)
     );
 
     // Priorizar se há vacinações vencidas
@@ -100,10 +100,10 @@ export class AIRecommendationEngine {
     const agora = new Date();
     const trintaDiasAtras = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const animaisSemPesagemRecente = animais.filter((animal) => {
-      const pesagensAnimal = pesagens.filter((p) => p.animal_id === animal.id);
+    const animaisSemPesagemRecente = animais.filter((animal: any) => {
+      const pesagensAnimal = pesagens.filter((p: any) => p.animal_id === animal.id);
       const temPesagemRecente = pesagensAnimal.some(
-        (p) => new Date(p.data) >= trintaDiasAtras
+        (p: any) => new Date(p.data) >= trintaDiasAtras
       );
       return !temPesagemRecente;
     });
@@ -140,7 +140,7 @@ export class AIRecommendationEngine {
         status: 'PENDENTE',
         payload: {
           totalSemPesagemRecente: animaisSemPesagemRecente.length,
-          brincos: animaisSemPesagemRecente.map((a) => a.brinco),
+          brincos: animaisSemPesagemRecente.map((a: any) => a.brinco),
           diasSemPesagem: 30,
         },
       };
@@ -174,7 +174,7 @@ export class AIRecommendationEngine {
 
     // Verificar animais com dados incompletos
     const animaisIncompletos = animais.filter(
-      (a) => !a.raca || !a.sexo || !a.data_nascimento
+      (a: any) => !a.raca || !a.sexo || !a.data_nascimento
     );
     if (animaisIncompletos.length > animais.length * 0.3) {
       // Mais de 30% incompleto
@@ -215,7 +215,7 @@ export class AIRecommendationEngine {
     // Calcular score de saúde
     const taxaVacinacao = (vacinacoes.length / animais.length) * 100;
     const taxaPesagem = pesagens.length > 0 ? 1 : 0;
-    const taxaDados = (animais.filter((a) => a.raca && a.sexo).length / animais.length) * 100;
+    const taxaDados = (animais.filter((a: any) => a.raca && a.sexo).length / animais.length) * 100;
 
     const scoreGeral = (taxaVacinacao * 0.5 + taxaDados * 0.3 + taxaPesagem * 100 * 0.2) / 100;
 

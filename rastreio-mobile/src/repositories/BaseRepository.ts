@@ -1,26 +1,28 @@
-import { db } from '../database/schema';
+import { SQLiteDatabase } from 'expo-sqlite';
 
 export interface Identifiable {
   id: string;
 }
 
 export class BaseRepository<T extends Identifiable> {
+  protected db: SQLiteDatabase;
   table: string;
 
-  constructor(table: string) {
+  constructor(db: SQLiteDatabase, table: string) {
+    this.db = db;
     this.table = table;
   }
 
-  create(item: T): Promise<void> {
+  create(item: T): Promise<T> {
     const keys = Object.keys(item).join(', ');
     const placeholders = Object.keys(item).map(() => '?').join(', ');
     const values = Object.keys(item).map((k) => (item as any)[k]);
     return new Promise((resolve, reject) => {
-      db.transaction((tx) => {
+      this.db.transaction((tx) => {
         tx.executeSql(
           `INSERT OR REPLACE INTO ${this.table} (${keys}) VALUES (${placeholders});`,
           values,
-          () => resolve(),
+          () => resolve(item),
           (_, err) => {
             reject(err);
             return false;
@@ -32,7 +34,7 @@ export class BaseRepository<T extends Identifiable> {
 
   findById(id: string): Promise<T | null> {
     return new Promise((resolve, reject) => {
-      db.transaction((tx) => {
+      this.db.transaction((tx) => {
         tx.executeSql(
           `SELECT * FROM ${this.table} WHERE id = ? LIMIT 1;`,
           [id],
@@ -51,7 +53,7 @@ export class BaseRepository<T extends Identifiable> {
 
   listAll(): Promise<T[]> {
     return new Promise((resolve, reject) => {
-      db.transaction((tx) => {
+      this.db.transaction((tx) => {
         tx.executeSql(
           `SELECT * FROM ${this.table} ORDER BY updated_at DESC;`,
           [],
@@ -67,7 +69,7 @@ export class BaseRepository<T extends Identifiable> {
 
   listUnsynced(): Promise<T[]> {
     return new Promise((resolve, reject) => {
-      db.transaction((tx) => {
+      this.db.transaction((tx) => {
         tx.executeSql(
           `SELECT * FROM ${this.table} WHERE synced = 0 ORDER BY updated_at ASC;`,
           [],

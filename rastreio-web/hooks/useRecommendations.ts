@@ -76,7 +76,7 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
   const updateStatus = async (
     id: string,
     status: 'RECONHECIDA' | 'RESOLVIDA'
-  ): Promise<Recommendation | null> => {
+  ): Promise<void> => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/recommendations/${id}`, {
@@ -90,7 +90,7 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
 
       if (!response.ok) throw new Error('Failed to update recommendation');
 
-      const { success, data } = await response.json();
+      const { success } = await response.json();
       if (success) {
         // Atualizar localmente
         setRecommendations((prev) =>
@@ -98,12 +98,11 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
         );
         // Atualizar métricas
         await fetchMetrics();
-        return data;
+        return;
       }
     } catch (err) {
       console.error('Erro ao atualizar recomendação:', err);
     }
-    return null;
   };
 
   const generateNewRecommendations = async (): Promise<Recommendation | null> => {
