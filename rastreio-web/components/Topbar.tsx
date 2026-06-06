@@ -6,28 +6,11 @@ import { useRouter } from 'next/navigation';
 import { Modal } from './ui/Modal';
 import { SinoNotificacoes } from './SinoNotificacoes';
 import { supabase } from '@/lib/supabase';
+import { clearAllAppStorage } from '@/lib/session';
 
 interface TopbarProps {
   userEmail: string;
   fazendaNome: string;
-}
-
-function clearAuthStorage() {
-  if (typeof window === 'undefined') return;
-
-  const authKeys = ['token', 'oauth_provider_token', 'oauth_provider_refresh_token'];
-
-  [window.localStorage, window.sessionStorage].forEach((storage) => {
-    Object.keys(storage).forEach((key) => {
-      if (
-        authKeys.includes(key) ||
-        key.startsWith('supabase.auth') ||
-        key.includes('supabase') && key.includes('auth')
-      ) {
-        storage.removeItem(key);
-      }
-    });
-  });
 }
 
 export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
@@ -55,7 +38,7 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
     setLoading(true);
     try {
       await supabase.auth.signOut();
-      clearAuthStorage();
+      clearAllAppStorage();
       router.replace('/login');
     } finally {
       setLoading(false);

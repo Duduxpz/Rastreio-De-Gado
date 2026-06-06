@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { clearAllAppStorage } from '@/lib/session';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -17,7 +18,9 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
-    // Verificar se já está autenticado
+    // Limpar qualquer cache de conta anterior ao abrir a tela de login
+    clearAllAppStorage();
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {

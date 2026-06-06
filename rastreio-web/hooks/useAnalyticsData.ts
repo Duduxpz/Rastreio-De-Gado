@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getSessionToken } from '@/lib/supabase';
 import { AnalyticsSnapshot, AnalyticsStats } from '@/types';
 
 interface UseAnalyticsOptions {
@@ -193,7 +194,8 @@ export function useAlerts(filters?: {
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = await getSessionToken();
+      if (!token) throw new Error('No session token');
       const params = new URLSearchParams();
 
       if (filters?.nivel) params.append('nivel', filters.nivel);
@@ -220,7 +222,8 @@ export function useAlerts(filters?: {
 
   const markAsRead = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = await getSessionToken();
+      if (!token) throw new Error('No session token');
       const response = await fetch(`/api/alerts/${id}`, {
         method: 'PATCH',
         headers: {
