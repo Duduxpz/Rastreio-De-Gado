@@ -21,12 +21,12 @@ export default function DashboardLayout({
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          router.push('/login');
+          router.replace('/login');
           return;
         }
         setUser(session.user);
       } catch (error) {
-        router.push('/login');
+        router.replace('/login');
       } finally {
         setLoading(false);
       }
