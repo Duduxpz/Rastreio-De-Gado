@@ -7,6 +7,7 @@ import animaisRouter from './routes/animais.js';
 import vacinacoesRouter from './routes/vacinacoes.js';
 import pesagensRouter from './routes/pesagens.js';
 import syncRouter from './routes/sync.js';
+import analyticsRouter from './routes/analytics.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -27,6 +28,7 @@ app.use('/api/animais', animaisRouter);
 app.use('/api/vacinacoes', vacinacoesRouter);
 app.use('/api/pesagens', pesagensRouter);
 app.use('/api/sync', syncRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Health check
 app.get('/health', (req, res) => {

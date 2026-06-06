@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export interface DashboardStats {
   totalAnimais: number;
@@ -99,8 +100,79 @@ export const useDashboardStats = (): DashboardStats => {
   };
 
   useEffect(() => {
-    // Calcular na montagem
+    // Calcular na montagem (fallback local)
     calcularStats();
+
+    // Try server-side analytics when online and authenticated — fallback to local
+    const fetchServerStats = async () => {
+      if (typeof window === 'undefined') return;
+      try {
+        const session = await supabase.auth.getSession();
+        const token = session?.data?.session?.access_token;
+        const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '';
+        if (!apiUrl || !token) return;
+
+        const res = await fetch(`${apiUrl}/api/analytics/overview?days=30`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+
+        // Preserve local computations for pesagens30Dias when server doesn't provide it
+        const pesagensStr = typeof window !== 'undefined' ? localStorage.getItem('pesagens') : null;
+        const pesagens = pesagensStr ? JSON.parse(pesagensStr) : [];
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+        const pesagens30Dias = pesagens.filter((p: any) => p.data && new Date(p.data) >= trintaDiasAtras).length;
+
+        // Read previous snapshot to calculate trends
+        const snapshotAnterior = typeof window !== 'undefined'
+          ? JSON.parse(localStorage.getItem('dashboard_snapshot') || '{}')
+          : {};
+
+        const calcTendencia = (
+          atual: number,
+          anterior: number | undefined
+        ): 'aumentando' | 'estavel' | 'diminuindo' => {
+          if (anterior === undefined) return 'estavel';
+          if (atual > anterior) return 'aumentando';
+          if (atual < anterior) return 'diminuindo';
+          return 'estavel';
+        };
+
+        const totalAnimais = json.total_animais ?? snapshotAnterior.totalAnimais ?? 0;
+        const vacinacoesPendentes = json.vacinacoes_pendentes ?? snapshotAnterior.vacinacoesPendentes ?? 0;
+        const totalRegistros = totalAnimais + (pesagens.length || 0) + (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('vacinacoes') || '[]').length : 0);
+
+        const tendenciaAnimais = calcTendencia(totalAnimais, snapshotAnterior.totalAnimais);
+        const tendenciaVacinacoes = calcTendencia(vacinacoesPendentes, snapshotAnterior.vacinacoesPendentes);
+        const tendenciaPesagens = calcTendencia(pesagens30Dias, snapshotAnterior.pesagens30Dias);
+        const tendenciaRegistros = calcTendencia(totalRegistros, snapshotAnterior.totalRegistros);
+
+        // Save snapshot
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(
+            'dashboard_snapshot',
+            JSON.stringify({ totalAnimais, vacinacoesPendentes, pesagens30Dias, totalRegistros })
+          );
+        }
+
+        setStats({
+          totalAnimais,
+          vacinacoesPendentes,
+          pesagens30Dias,
+          totalRegistros,
+          tendenciaAnimais,
+          tendenciaVacinacoes,
+          tendenciaPesagens,
+          tendenciaRegistros,
+        });
+      } catch (e) {
+        // ignore and keep local stats
+      }
+    };
+
+    fetchServerStats();
 
     // Recalcular sempre que o localStorage mudar (outro evento storage ou manual dispatch)
     const handleStorageChange = () => calcularStats();
