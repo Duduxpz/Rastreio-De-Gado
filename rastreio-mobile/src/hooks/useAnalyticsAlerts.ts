@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSQLiteContext } from 'expo-sqlite';
+import { db } from '../database/schema';
 import { AlertsRepository, RecommendationsRepository } from '../repositories/AlertsRepository';
 import type { Alert, Recommendation } from '../types';
 
 export function useAlerts(fazendaId: string) {
-  const db = useSQLiteContext();
+  const repo = new AlertsRepository(db);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-
-  const repo = new AlertsRepository(db);
 
   const loadAlerts = useCallback(async () => {
     try {
@@ -64,7 +62,6 @@ export function useAlerts(fazendaId: string) {
 }
 
 export function useRecommendations(fazendaId: string) {
-  const db = useSQLiteContext();
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [criticalCount, setCriticalCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -76,7 +73,7 @@ export function useRecommendations(fazendaId: string) {
       setLoading(true);
       const data = await repo.findByFazenda(fazendaId);
       setRecommendations(data);
-      const critical = data.filter((r) => r.prioridade === 1 && !r.acknowledged).length;
+      const critical = data.filter((r) => r.status === 'PENDENTE').length;
       setCriticalCount(critical);
     } catch (error) {
       console.error('Failed to load recommendations:', error);
@@ -87,9 +84,9 @@ export function useRecommendations(fazendaId: string) {
 
   const acknowledge = useCallback(async (id: string) => {
     try {
-      await repo.acknowledge(id);
+      await repo.updateStatus(id, 'RECONHECIDA');
       setRecommendations((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, acknowledged: true } : r))
+        prev.map((r) => (r.id === id ? { ...r, status: 'RECONHECIDA' } : r))
       );
       setCriticalCount((prev) => Math.max(0, prev - 1));
     } catch (error) {

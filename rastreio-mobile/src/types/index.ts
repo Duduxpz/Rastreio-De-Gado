@@ -116,22 +116,6 @@ export interface Alert {
 }
 
 // ============================================================================
-// Recommendation Types
-// ============================================================================
-
-export interface Recommendation {
-  id: string;
-  fazenda_id: string;
-  prioridade: number; // 1-5
-  motivo: string;
-  impacto: string;
-  payload: Record<string, any>;
-  acknowledged: boolean;
-  created_at: string;
-  synced?: 0 | 1;
-}
-
-// ============================================================================
 // API Response Types
 // ============================================================================
 

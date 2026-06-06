@@ -114,6 +114,10 @@ router.post('/generate', authMiddleware, async (req: AuthRequest, res) => {
         ),
     ]);
 
+    if (!req.fazendaId) {
+      return res.status(400).json({ success: false, error: 'Fazenda ID não disponível' });
+    }
+
     const context = {
       fazendaId: req.fazendaId,
       animais: animaisResult.data || [],
@@ -212,14 +216,14 @@ router.patch('/:id', authMiddleware, async (req: AuthRequest, res) => {
     const updates: any = {};
 
     if (status) {
-      const validStatuses: RecommendationStatus[] = ['PENDENTE', 'RECONHECIDA', 'RESOLVIDA'];
+      const validStatuses = ['PENDENTE', 'RECONHECIDA', 'RESOLVIDA'] as const;
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
           error: 'Invalid status. Must be PENDENTE, RECONHECIDA, or RESOLVIDA',
         });
       }
-      updates.status = status;
+      updates.status = status as RecommendationStatus;
     }
 
     if (Object.keys(updates).length === 0) {

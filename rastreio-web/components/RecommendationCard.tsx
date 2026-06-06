@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { Recommendation } from '@/types';
-import { Button } from './Button';
+import { Button } from '@/components/ui/Button';
 
 const PRIORIDADE_CONFIG: Record<string, { bg: string; text: string; border: string; badge: string }> = {
   ALTA: {
@@ -48,7 +48,6 @@ export function RecommendationCard({
   onStatusChange,
   loading = false,
 }: RecommendationCardProps) {
-  const [expanded, setExpanded] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const config = PRIORIDADE_CONFIG[recommendation.prioridade] || PRIORIDADE_CONFIG.MEDIA;
 

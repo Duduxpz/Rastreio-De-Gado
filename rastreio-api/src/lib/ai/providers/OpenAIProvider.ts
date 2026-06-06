@@ -7,7 +7,7 @@ import {
   AIProvider,
   AIInsight,
   AIAnalysisContext,
-} from './providers/AIProvider';
+} from './AIProvider';
 
 export class OpenAIProvider implements AIProvider {
   private apiKey: string;

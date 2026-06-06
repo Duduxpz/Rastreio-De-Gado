@@ -5,7 +5,7 @@ import { colors, typography, spacing } from '../constants';
 import type { Animal } from '../types';
 
 interface AnimalCardProps {
-  readonly animal: Animal;
+  animal: Animal;
 }
 
 function categoriaParaBadge(
@@ -21,7 +21,7 @@ function categoriaParaBadge(
   return map[categoria ?? ''] ?? 'neutral';
 }
 
-export function AnimalCard({ animal }: readonly AnimalCardProps) {
+export function AnimalCard({ animal }: AnimalCardProps) {
   return (
     <TouchableOpacity
       onPress={() => router.push(`/animal/${animal.id}`)}

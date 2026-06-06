@@ -4,7 +4,7 @@ import { db } from '../database/schema';
 
 export class AnimaisRepository extends BaseRepository<Animal> {
   constructor() {
-    super('animais');
+    super(db, 'animais');
   }
 
   findByBrinco(brinco: string): Promise<Animal | null> {

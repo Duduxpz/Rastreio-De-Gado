@@ -7,7 +7,7 @@ import {
   AIProvider,
   AIInsight,
   AIAnalysisContext,
-} from './providers/AIProvider';
+} from './AIProvider';
 
 export class GeminiProvider implements AIProvider {
   private apiKey: string;

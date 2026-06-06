@@ -7,7 +7,7 @@ interface CardProps {
   readonly variant?: 'default' | 'elevated' | 'outlined';
 }
 
-export function Card({ children, style, variant = 'default' }: readonly CardProps) {
+export function Card({ children, style, variant = 'default' }: CardProps) {
   const styles: ViewStyle = {
     backgroundColor: colors.surface,
     borderRadius: 12,
