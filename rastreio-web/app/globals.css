@@ -23,6 +23,10 @@
            ring-1 ring-white/[0.04];
   }
 
+  .print-surface {
+    @apply bg-white text-gray-900 shadow-none;
+  }
+
   /* Input padrão */
   .input {
     @apply w-full bg-bg-elevated border border-bg-border rounded-lg
@@ -43,5 +47,33 @@
     @apply px-4 py-2.5 rounded-xl border border-bg-border
            text-text-secondary text-sm font-medium
            hover:bg-bg-elevated hover:text-text-primary transition-colors;
+  }
+}
+
+@media print {
+  nav,
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  main,
+  .content-area,
+  .relatorio-content {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-surface {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
   }
 }
