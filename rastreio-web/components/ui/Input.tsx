@@ -1,20 +1,28 @@
 import React from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  hint?: string;
-  icon?: React.ReactNode;
+  readonly label?: string;
+  readonly error?: string;
+  readonly hint?: string;
+  readonly icon?: React.ReactNode;
+  readonly rightIcon?: React.ReactNode;
+  readonly onRightIconClick?: () => void;
 }
 
-export function Input({
-  label,
-  error,
-  hint,
-  icon,
-  className = '',
-  ...props
-}: InputProps) {
+export function Input(props: Readonly<InputProps>) {
+  const {
+    label,
+    error,
+    hint,
+    icon,
+    rightIcon,
+    onRightIconClick,
+    className = '',
+    ...inputProps
+  } = props;
+  const hasLeftIcon = Boolean(icon);
+  const hasRightIcon = Boolean(rightIcon);
+
   return (
     <div className="w-full">
       {label && (
@@ -30,7 +38,7 @@ export function Input({
         )}
         <input
           className={`
-            w-full px-4 py-2 ${icon ? 'pl-10' : ''} rounded-lg border bg-bg-elevated text-text-primary placeholder-text-muted
+            w-full px-4 py-3 ${hasLeftIcon ? 'pl-11' : ''} ${hasRightIcon ? 'pr-11' : ''} rounded-2xl border bg-bg-elevated text-text-primary placeholder-text-muted
             ${
               error
                 ? 'border-danger-DEFAULT focus:border-danger-DEFAULT focus:ring-danger-DEFAULT'
@@ -40,11 +48,21 @@ export function Input({
             transition-colors
             ${className}
           `}
-          {...props}
+          {...inputProps}
         />
+        {hasRightIcon && (
+          <button
+            type="button"
+            onClick={onRightIconClick}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+            aria-label="Toggle password visibility"
+          >
+            {rightIcon}
+          </button>
+        )}
       </div>
-      {error && <p className="mt-1 text-sm text-danger-DEFAULT">{error}</p>}
-      {hint && !error && <p className="mt-1 text-sm text-text-muted">{hint}</p>}
+      {error && <p className="mt-2 text-sm text-danger-DEFAULT">{error}</p>}
+      {hint && !error && <p className="mt-2 text-sm text-text-muted">{hint}</p>}
     </div>
   );
 }
