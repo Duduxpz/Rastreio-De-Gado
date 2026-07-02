@@ -14,6 +14,8 @@ import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
 import { VaccinationScheduler } from '@/lib/vaccination-scheduler';
 import { saveAnimalToSupabase } from '@/lib/fazenda';
+import { useToast } from '@/hooks/useToast';
+import { Toast } from '@/components/ui/Toast';
 import type { Animal, Categoria, Sexo } from '@/types';
 
 export default function AnimaisPage() {
@@ -22,6 +24,8 @@ export default function AnimaisPage() {
   const [search, setSearch] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const { toasts, addToast, removeToast } = useToast();
   const [formData, setFormData] = useState({
     brinco: '',
     raca: '',
@@ -83,11 +87,15 @@ export default function AnimaisPage() {
   };
 
   const handleCriarAnimal = async () => {
-    // Criar animal conforme o schema solicitado e salvar em localStorage
+    if (!formData.brinco.trim()) {
+      addToast('Informe o brinco do animal antes de salvar.', 'error', 5000);
+      return;
+    }
+
     const novoAnimal = {
       id: Date.now().toString(),
-      brinco: formData.brinco || '',
-      raca: formData.raca || '',
+      brinco: formData.brinco.trim(),
+      raca: formData.raca.trim(),
       sexo: formData.sexo === 'M' ? 'Macho' : formData.sexo === 'F' ? 'Fêmea' : (formData.sexo || ''),
       dataNascimento: formData.data_nascimento || '',
       categoria:
@@ -108,6 +116,8 @@ export default function AnimaisPage() {
       pasto: formData.pasto || '',
       criadoEm: new Date().toISOString(),
     };
+
+    setSaving(true);
 
     try {
       const pesoNumerico = novoAnimal.peso ? Number(novoAnimal.peso) : undefined;
@@ -186,9 +196,14 @@ export default function AnimaisPage() {
         pasto: '',
         peso_atual: '',
       });
+      addToast(`Animal ${novoAnimal.brinco} cadastrado com sucesso.`, 'success', 4000);
       notificarDashboard();
     } catch (e) {
+      const message = e instanceof Error ? e.message : 'Não foi possível salvar o animal.';
+      addToast(message, 'error', 6000);
       console.error('Erro salvando animal no banco:', e);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -330,8 +345,8 @@ export default function AnimaisPage() {
             <Button variant="ghost" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
-            <Button variant="primary" onClick={handleCriarAnimal} type="button">
-              Criar Animal
+            <Button variant="primary" onClick={handleCriarAnimal} type="button" disabled={saving}>
+              {saving ? 'Salvando...' : 'Criar Animal'}
             </Button>
           </>
         }
@@ -435,7 +450,7 @@ export default function AnimaisPage() {
               }
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Lote"
               placeholder="Ex: Lote A"
@@ -455,6 +470,7 @@ export default function AnimaisPage() {
           </div>
         </div>
       </Modal>
+      <Toast toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
