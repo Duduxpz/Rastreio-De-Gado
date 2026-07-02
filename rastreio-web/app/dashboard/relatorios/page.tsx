@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -13,6 +13,7 @@ export default function RelatoriosPage() {
   const [pesagens, setPesagens] = useState<any[]>([]);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [loading, setLoading] = useState(true);
+  const relatorioRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     carregarDados();
@@ -45,8 +46,27 @@ export default function RelatoriosPage() {
   }).length;
 
   const handleExportarPDF = () => {
-    window.print();
+    globalThis.print();
   };
+
+  const getSexoLabel = (sexo?: string) => {
+    if (sexo === 'M' || sexo === 'Macho') return 'M';
+    if (sexo === 'F' || sexo === 'Fêmea') return 'F';
+    return sexo || '—';
+  };
+
+  const getCategoriaVariant = (categoria?: string) => {
+    if (categoria === 'vaca' || categoria === 'Vaca') return 'success';
+    if (categoria === 'touro' || categoria === 'Touro') return 'warning';
+    return 'info';
+  };
+
+  const relatorioResumo = [
+    { label: 'Total de Animais', value: animais.length },
+    { label: 'Vacinações aplicadas', value: totalAplicadas },
+    { label: 'Vacinações pendentes', value: totalPendentes },
+    { label: 'Pesagens no mês', value: pesagensMes },
+  ];
 
   if (loading) {
     return (
@@ -61,32 +81,49 @@ export default function RelatoriosPage() {
 
   return (
     <div className="space-y-6 print:space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 no-print">
         <PageHeader
           title="Relatórios"
           description="Visão consolidada do rebanho"
         />
-        <Button
-          variant="primary"
-          onClick={handleExportarPDF}
-          className="print:hidden"
-        >
-          ↓ Exportar PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={handleExportarPDF} className="print:hidden">
+            Imprimir
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleExportarPDF}
+            className="print:hidden"
+          >
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
+      <div className="hidden print:flex print:items-center print:justify-between print:border-b print:border-gray-300 print:pb-4 print:mb-4">
+        <div>
+          <p className="text-lg font-semibold text-gray-900">Rastreabilidade de Gado</p>
+          <p className="text-sm text-gray-500">Relatório consolidado da fazenda</p>
+        </div>
+        <div className="text-right text-sm text-gray-500">
+          <p>Gerado em {new Date().toLocaleDateString('pt-BR')}</p>
+          <p>Fazenda São João</p>
+        </div>
+      </div>
+
+      <div ref={relatorioRef} className="space-y-6 print:space-y-4 relatorio-content">
       {/* Cards resumo */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Total Animais */}
-        <Card className="p-6">
-          <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
-            Total de Animais
-          </p>
-          <p className="text-3xl font-bold text-text-primary">
-            {animais.length}
-          </p>
-        </Card>
+        {relatorioResumo.map((item) => (
+          <Card key={item.label} className="p-6 print-surface">
+            <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
+              {item.label}
+            </p>
+            <p className="text-3xl font-bold text-text-primary">
+              {item.value}
+            </p>
+          </Card>
+        ))}
 
         {/* Vacinações */}
         <Card className="p-6">
@@ -180,24 +217,13 @@ export default function RelatoriosPage() {
                       {a.raca || '—'}
                     </td>
                     <td className="px-4 py-3 text-text-secondary">
-                      {a.sexo === 'M' || a.sexo === 'Macho'
-                        ? 'M'
-                        : a.sexo === 'F' || a.sexo === 'Fêmea'
-                          ? 'F'
-                          : a.sexo || '—'}
+                      {getSexoLabel(a.sexo)}
                     </td>
                     <td className="px-4 py-3">
                       {a.categoria ? (
                         <Badge
                           label={a.categoria}
-                          variant={
-                            a.categoria === 'vaca' || a.categoria === 'Vaca'
-                              ? 'success'
-                              : a.categoria === 'touro' ||
-                                  a.categoria === 'Touro'
-                                ? 'warning'
-                                : 'info'
-                          }
+                          variant={getCategoriaVariant(a.categoria)}
                         />
                       ) : (
                         '—'
@@ -221,7 +247,7 @@ export default function RelatoriosPage() {
       </Card>
 
       {/* Seção Vacinações */}
-      <Card className="p-6">
+      <Card className="p-6 print-surface">
         <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
           Vacinações
         </h2>
@@ -298,7 +324,7 @@ export default function RelatoriosPage() {
       </Card>
 
       {/* Seção Pesagens */}
-      <Card className="p-6">
+      <Card className="p-6 print-surface">
         <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
           Pesagens
         </h2>
@@ -352,7 +378,7 @@ export default function RelatoriosPage() {
       </Card>
 
       {/* Seção Alertas */}
-      <Card className="p-6">
+      <Card className="p-6 print-surface">
         <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
           Alertas Ativos
         </h2>
@@ -398,6 +424,7 @@ export default function RelatoriosPage() {
           </div>
         )}
       </Card>
+      </div>
     </div>
   );
 }

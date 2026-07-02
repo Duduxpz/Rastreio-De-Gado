@@ -11,7 +11,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
-import { Syringe } from 'lucide-react';
+import { AlertCircle, CalendarClock, CheckCircle2, Clock3, Syringe } from 'lucide-react';
 
 interface VacinacaoLocal {
   id: string;
@@ -65,6 +65,10 @@ export default function VacinacoesPag() {
     );
   });
 
+  const pendentes = vacinacoesFiltradas.filter((v) => v.status !== 'aplicada').length;
+  const atrasadas = vacinacoesFiltradas.filter((v) => v.status !== 'aplicada' && v.dataVencimento && new Date(v.dataVencimento) < new Date()).length;
+  const proximas = vacinacoesFiltradas.filter((v) => v.status !== 'aplicada' && v.dataVencimento).slice(0, 3);
+
   const handleExcluir = (id: string) => {
     const atualizadas = vacinacoes.filter((v) => v.id !== id);
     localStorage.setItem('vacinacoes', JSON.stringify(atualizadas));
@@ -97,7 +101,6 @@ export default function VacinacoesPag() {
         }
       />
 
-      {/* Busca */}
       <Card className="p-6">
         <div className="grid grid-cols-1 gap-4">
           <Input
@@ -108,6 +111,59 @@ export default function VacinacoesPag() {
           />
         </div>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 border-brand-DEFAULT/30">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-brand-subtle p-2"><Clock3 size={18} className="text-brand-light" /></div>
+            <div>
+              <p className="text-sm text-text-secondary">Pendentes</p>
+              <p className="text-2xl font-semibold text-text-primary">{pendentes}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 border-danger-DEFAULT/30">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-danger-subtle p-2"><AlertCircle size={18} className="text-danger-DEFAULT" /></div>
+            <div>
+              <p className="text-sm text-text-secondary">Atrasadas</p>
+              <p className="text-2xl font-semibold text-text-primary">{atrasadas}</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 border-info-DEFAULT/30">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-info-subtle p-2"><CalendarClock size={18} className="text-info-DEFAULT" /></div>
+            <div>
+              <p className="text-sm text-text-secondary">Próximas</p>
+              <p className="text-2xl font-semibold text-text-primary">{proximas.length}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {proximas.length > 0 && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Próximas aplicações</h2>
+            <span className="text-xs text-text-muted">Agendamento automático</span>
+          </div>
+          <div className="space-y-3">
+            {proximas.map((v) => (
+              <div key={v.id} className="flex items-center justify-between rounded-lg border border-bg-border bg-bg-elevated/40 px-4 py-3">
+                <div>
+                  <p className="font-medium text-text-primary">{v.vacina}</p>
+                  <p className="text-sm text-text-secondary">{v.animalBrinco} • {v.dataVencimento || 'Sem data'}</p>
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-brand-subtle px-3 py-1 text-xs font-medium text-brand-light">
+                  <CheckCircle2 size={14} />
+                  Pendente
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Tabela */}
       {vacinacoesFiltradas.length === 0 ? (

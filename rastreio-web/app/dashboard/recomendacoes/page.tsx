@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Activity, Leaf, ShieldAlert } from 'lucide-react';
 import { useRecommendations } from '@/hooks/useRecommendations';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
@@ -37,34 +38,53 @@ export default function RecomendacoesPage() {
     }
   };
 
+  const hasRecommendations = recommendations.length > 0;
+  const pluralizedLabel = recommendations.length === 1 ? 'recomendação' : 'recomendações';
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <PageHeader title="Centro Inteligente de Insights Pecuários" />
+      <div className="flex items-center justify-between gap-4">
+        <PageHeader
+          title="Recomendações"
+          description="Orientações personalizadas para saúde, manejo e produtividade"
+        />
         <Button
           onClick={handleGenerateNew}
           disabled={generatingNew || loading}
           className="flex-shrink-0"
         >
-          {generatingNew ? 'Gerando...' : '🤖 Gerar Insights'}
+          {generatingNew ? 'Gerando...' : 'Gerar Insights'}
         </Button>
       </div>
 
-      {/* Métricas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-xl border border-brand-DEFAULT/30 bg-brand-subtle/20 p-4">
+          <div className="mb-2 flex items-center gap-2 text-brand-light"><ShieldAlert size={16} /> Saúde</div>
+          <p className="text-sm text-text-secondary">Vacinações, doenças e alertas sanitários.</p>
+        </div>
+        <div className="rounded-xl border border-info-DEFAULT/30 bg-info-subtle/20 p-4">
+          <div className="mb-2 flex items-center gap-2 text-info-DEFAULT"><Activity size={16} /> Manejo</div>
+          <p className="text-sm text-text-secondary">Calendários, peso e desempenho do rebanho.</p>
+        </div>
+        <div className="rounded-xl border border-success-DEFAULT/30 bg-success-subtle/20 p-4">
+          <div className="mb-2 flex items-center gap-2 text-success-DEFAULT"><Leaf size={16} /> Nutrição</div>
+          <p className="text-sm text-text-secondary">Planejamento de pastagem e suplementação.</p>
+        </div>
+      </div>
+
       {metrics && <RecommendationMetrics metrics={metrics} />}
 
-      {/* Filtros */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="bg-bg-surface rounded-lg border border-bg-border p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="prioridade-filter" className="block text-sm font-medium text-text-secondary mb-2">
               Prioridade
             </label>
             <select
+              id="prioridade-filter"
               value={prioridade || ''}
               onChange={(e) => setPrioridade((e.target.value as Prioridade) || undefined)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-bg-border rounded-md bg-bg-elevated text-sm text-text-primary"
             >
               <option value="">Todas</option>
               <option value="ALTA">Alta</option>
@@ -74,13 +94,14 @@ export default function RecomendacoesPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="status-filter" className="block text-sm font-medium text-text-secondary mb-2">
               Status
             </label>
             <select
+              id="status-filter"
               value={status || ''}
               onChange={(e) => setStatus((e.target.value as RecommendationStatus) || undefined)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-3 py-2 border border-bg-border rounded-md bg-bg-elevated text-sm text-text-primary"
             >
               <option value="">Todos</option>
               <option value="PENDENTE">Pendente</option>
@@ -113,7 +134,7 @@ export default function RecomendacoesPage() {
 
       {loading ? (
         <LoadingState message="Carregando insights inteligentes..." />
-      ) : recommendations.length === 0 ? (
+      ) : !hasRecommendations ? (
         <EmptyState
           title="Nenhuma recomendação no momento"
           description="Parabéns! Seu rebanho está funcionando bem. Clique em 'Gerar Insights' para buscar novas recomendações."
@@ -121,8 +142,7 @@ export default function RecomendacoesPage() {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Mostrando <strong>{recommendations.length}</strong> recomendação
-            {recommendations.length !== 1 ? 's' : ''}
+            Mostrando <strong>{recommendations.length}</strong> {pluralizedLabel}
           </p>
           {recommendations.map((rec) => (
             <RecommendationCard

@@ -12,6 +12,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
+import { VaccinationScheduler } from '@/lib/vaccination-scheduler';
 import type { Animal, Categoria, Sexo } from '@/types';
 
 export default function AnimaisPage() {
@@ -26,6 +27,7 @@ export default function AnimaisPage() {
     sexo: 'M' as Sexo,
     data_nascimento: '',
     categoria: 'bezerro' as Categoria,
+    especie: 'bovino' as 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave',
     lote: '',
     pasto: '',
     peso_atual: '',
@@ -96,6 +98,7 @@ export default function AnimaisPage() {
           : formData.categoria === 'boi'
           ? 'Boi'
           : formData.categoria || '',
+      especie: formData.especie,
       peso: formData.peso_atual || '',
       lote: formData.lote || '',
       pasto: formData.pasto || '',
@@ -107,6 +110,34 @@ export default function AnimaisPage() {
       const atualizados = [...existentes, novoAnimal];
       if (typeof window !== 'undefined') {
         localStorage.setItem('animais', JSON.stringify(atualizados));
+
+        const agendamentos = VaccinationScheduler.generateSchedule({
+          id: novoAnimal.id,
+          brinco: novoAnimal.brinco,
+          sexo: formData.sexo,
+          dataNascimento: novoAnimal.dataNascimento,
+          categoria: formData.categoria,
+          especie: formData.especie,
+        });
+
+        const vacinacoesExistentes = JSON.parse(localStorage.getItem('vacinacoes') || '[]');
+        const vacinacoesAtualizadas = [
+          ...vacinacoesExistentes,
+          ...agendamentos.map((item) => ({
+            id: item.id,
+            animalId: item.animalId,
+            animalBrinco: item.animalBrinco,
+            vacina: item.nome,
+            lote: '',
+            dataAplicacao: item.status === 'aplicada' ? item.dataPrevista : '',
+            dataVencimento: item.dataPrevista,
+            responsavel: 'Automático',
+            observacoes: item.observacao || item.dose,
+            status: item.status === 'aplicada' ? 'aplicada' : 'pendente',
+            criadoEm: new Date().toISOString(),
+          })),
+        ];
+        localStorage.setItem('vacinacoes', JSON.stringify(vacinacoesAtualizadas));
       }
 
       // Atualizar state local (mapear para formato UI)
@@ -135,6 +166,7 @@ export default function AnimaisPage() {
         sexo: 'M',
         data_nascimento: '',
         categoria: 'bezerro',
+        especie: 'bovino',
         lote: '',
         pasto: '',
         peso_atual: '',
@@ -308,6 +340,25 @@ export default function AnimaisPage() {
             }
           />
           <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Espécie
+              </label>
+              <select
+                value={formData.especie}
+                onChange={(e) =>
+                  setFormData({ ...formData, especie: e.target.value as typeof formData.especie })
+                }
+                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
+              >
+                <option value="bovino">Bovino</option>
+                <option value="equino">Equino</option>
+                <option value="ovino">Ovino</option>
+                <option value="caprino">Caprino</option>
+                <option value="suino">Suíno</option>
+                <option value="ave">Ave</option>
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
                 Sexo

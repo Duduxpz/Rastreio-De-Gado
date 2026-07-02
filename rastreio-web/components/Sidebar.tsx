@@ -3,18 +3,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Sprout, Syringe, Scale,
-  FileText, Bell, Settings, ChevronRight, TrendingUp, Lightbulb
+  BellRing, Settings2, ChevronRight, TrendingUp, ClipboardList,
 } from 'lucide-react';
+import { AnimalIcon } from '@/components/icons/AnimalIcon';
 
 const nav = [
-  { href: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard'   },
-  { href: '/dashboard/animais',       icon: Sprout,             label: 'Animais'     },
-  { href: '/dashboard/vacinacoes',icon: Syringe,         label: 'Vacinações'  },
-  { href: '/dashboard/pesagens',  icon: Scale,           label: 'Pesagens'    },
-  { href: '/dashboard/analytics', icon: TrendingUp,      label: 'Analytics'   },
-  { href: '/dashboard/relatorios',icon: FileText,        label: 'Relatórios'  },
-  { href: '/dashboard/alertas',   icon: Bell,            label: 'Alertas'     },
-  { href: '/dashboard/recomendacoes', icon: Lightbulb,   label: 'Recomendações' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/dashboard/animais', icon: () => <AnimalIcon type="bovino" size={16} />, label: 'Animais' },
+  { href: '/dashboard/vacinacoes', icon: Syringe, label: 'Vacinações' },
+  { href: '/dashboard/pesagens', icon: Scale, label: 'Pesagens' },
+  { href: '/dashboard/analytics', icon: TrendingUp, label: 'Analytics' },
+  { href: '/dashboard/relatorios', icon: ClipboardList, label: 'Relatórios' },
+  { href: '/dashboard/alertas', icon: BellRing, label: 'Alertas' },
+  { href: '/dashboard/recomendacoes', icon: Sprout, label: 'Recomendações' },
 ];
 
 export function Sidebar() {
@@ -26,17 +27,22 @@ export function Sidebar() {
       <nav className="flex flex-col gap-0.5 px-2">
         {nav.map(({ href, icon: Icon, label }) => {
           const active = path === href;
+          const iconClasses = active ? 'text-text-inverse' : 'text-brand-light';
           return (
             <Link key={href} href={href}
               className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-lg
                 text-sm font-medium transition-all duration-150
                 ${active
-                  ? 'bg-cta-DEFAULT text-text-inverse shadow-[0_2px_8px_rgba(249,115,22,0.35)]'
+                  ? 'bg-brand-DEFAULT text-text-inverse shadow-[0_2px_8px_rgba(34,197,94,0.3)]'
                   : 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
                 }
               `}>
-              <Icon size={16} className={active ? 'text-text-inverse' : ''} />
+              {typeof Icon === 'function' && Icon.name === '' ? (
+                <div className={iconClasses}><Icon size={16} /></div>
+              ) : (
+                <Icon size={16} className={iconClasses} />
+              )}
               <span className="flex-1">{label}</span>
               {active && <ChevronRight size={14} className="text-text-inverse/60" />}
             </Link>
@@ -47,7 +53,7 @@ export function Sidebar() {
         <Link href="/dashboard/configuracoes"
           className="flex items-center gap-2 text-xs text-text-muted
                      hover:text-text-secondary transition-colors">
-          <Settings size={14} />
+          <Settings2 size={14} />
           Configurações
         </Link>
       </div>
