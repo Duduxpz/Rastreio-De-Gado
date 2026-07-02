@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { clearAllAppStorage } from '@/lib/session';
+import { createDefaultFarmForUser } from '@/lib/fazenda';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -81,11 +82,26 @@ const processAuthAction = async (state: LoginState, actions: LoginActions) => {
   }
 
   if (state.isSignup) {
-    const { error: authError } = await supabase.auth.signUp({ email: state.email, password: state.password });
+    const { data: authData, error: authError } = await supabase.auth.signUp({ email: state.email, password: state.password });
     if (authError) {
       actions.setGlobalError(formatErrorMessage(authError.message));
       return;
     }
+
+    const userId = authData.user?.id;
+    if (!userId) {
+      actions.setGlobalError('Não foi possível concluir o cadastro. Tente novamente.');
+      return;
+    }
+
+    try {
+      await createDefaultFarmForUser(userId, 'Minha Fazenda');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao criar a fazenda inicial.';
+      actions.setGlobalError(formatErrorMessage(message));
+      return;
+    }
+
     actions.setSuccessMessage('Cadastro realizado! Verifique seu email para confirmar.');
     setTimeout(() => {
       actions.setIsSignup(false);
