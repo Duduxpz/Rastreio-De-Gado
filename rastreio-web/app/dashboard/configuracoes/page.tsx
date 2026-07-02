@@ -72,7 +72,7 @@ export default function ConfiguracoesPage() {
           .eq('id', user.id);
 
         if (error) {
-          throw error;
+          console.warn('Falha no update do profile, tentando criar/atualizar via upsert:', error);
         }
 
         await setFarmName(farmName);
