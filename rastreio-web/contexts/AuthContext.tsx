@@ -44,32 +44,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    const {\n      data: { user: currentUser },
-    } = await supabase.auth.getUser();
+    const result = await supabase.auth.getUser();
+    const currentUser = result.data?.user ?? null;
+
     if (!currentUser?.id) {
       setProfile(null);
       return;
     }
+
     await loadProfile(currentUser);
   }, [loadProfile]);
 
   const setFarmName = useCallback(async (farmName: string) => {
-    const {
-      data: { user: currentUser },
-    } = await supabase.auth.getUser();
+    const result = await supabase.auth.getUser();
+    const currentUser = result.data?.user ?? null;
+
     if (!currentUser?.id) {
       return;
     }
+
     const updatedProfile = await saveFarmNameForUser(currentUser.id, farmName);
     setProfile(updatedProfile);
   }, []);
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const currentUser = session?.user ?? null;
+      const result = await supabase.auth.getSession();
+      const currentUser = result.data?.session?.user ?? null;
       setUser(currentUser);
       await loadProfile(currentUser);
     };
@@ -101,8 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+
   return context;
 }
