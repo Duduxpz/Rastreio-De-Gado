@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { clearAllAppStorage } from '@/lib/session';
-import { createDefaultFarmForUser } from '@/lib/fazenda';
+import { saveFarmNameForUser } from '@/lib/profile';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -38,6 +38,7 @@ type LoginState = {
   email: string;
   password: string;
   confirmPassword: string;
+  farmName: string;
   isSignup: boolean;
   forgotMode: boolean;
 };
@@ -82,7 +83,15 @@ const processAuthAction = async (state: LoginState, actions: LoginActions) => {
   }
 
   if (state.isSignup) {
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email: state.email, password: state.password });
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: state.email,
+    password: state.password,
+    options: {
+      data: {
+        farm_name: state.farmName,
+      },
+    },
+  });
     if (authError) {
       actions.setGlobalError(formatErrorMessage(authError.message));
       return;
@@ -95,7 +104,7 @@ const processAuthAction = async (state: LoginState, actions: LoginActions) => {
     }
 
     try {
-      await createDefaultFarmForUser(userId, 'Minha Fazenda');
+      await saveFarmNameForUser(userId, state.farmName);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao criar a fazenda inicial.';
       actions.setGlobalError(formatErrorMessage(message));
@@ -127,6 +136,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [farmName, setFarmName] = useState('');
   const [loading, setLoading] = useState(false);
   const [globalError, setGlobalError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -180,6 +190,11 @@ export default function LoginPage() {
     }
 
     if (isSignup) {
+      if (!farmName.trim()) {
+        setGlobalError('Informe o nome da fazenda');
+        valid = false;
+      }
+
       if (!confirmPassword) {
         setConfirmPasswordError('Confirme sua senha');
         valid = false;
@@ -208,6 +223,7 @@ export default function LoginPage() {
           email,
           password,
           confirmPassword,
+          farmName: farmName.trim(),
           isSignup,
           forgotMode,
         },
@@ -234,6 +250,7 @@ export default function LoginPage() {
     setForgotMode(false);
     setPassword('');
     setConfirmPassword('');
+    setFarmName('');
     resetValidation();
   };
 
@@ -295,6 +312,19 @@ export default function LoginPage() {
                 rightIcon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 onRightIconClick={() => setShowPassword((current) => !current)}
                 error={passwordError}
+              />
+            )}
+
+            {showConfirmPassword && (
+              <Input
+                label="Nome da fazenda"
+                type="text"
+                placeholder="Ex: Fazenda São João"
+                value={farmName}
+                onChange={(e) => setFarmName(e.target.value)}
+                disabled={loading}
+                required
+                icon={<MapPin size={18} />}
               />
             )}
 
