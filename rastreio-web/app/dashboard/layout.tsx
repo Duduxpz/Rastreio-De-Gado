@@ -9,9 +9,9 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   const router = useRouter();
   const { user, farmName, loading: authLoading } = useAuth();
 
