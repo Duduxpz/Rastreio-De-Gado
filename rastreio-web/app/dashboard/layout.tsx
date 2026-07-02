@@ -51,7 +51,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-bg-base font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-bg-base font-sans">
       <Topbar
         userEmail={user?.email}
         fazendaNome="Fazenda São João"

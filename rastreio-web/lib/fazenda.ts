@@ -60,13 +60,15 @@ export async function saveAnimalToSupabase(input: Partial<Animal> & { id?: strin
     throw new Error('Sessão expirada. Faça login novamente para continuar.');
   }
 
+  const pesoInformado = input.peso_atual !== undefined && input.peso_atual !== null && input.peso_atual !== '';
+  const pesoValue = pesoInformado ? Number(input.peso_atual) : null;
   const payload = {
     id: input.id || crypto.randomUUID(),
     brinco: input.brinco,
     raca: input.raca || null,
     sexo: input.sexo || null,
     data_nascimento: input.data_nascimento || null,
-    peso_atual: input.peso_atual !== undefined && input.peso_atual !== null && input.peso_atual !== '' ? Number(input.peso_atual) : null,
+    peso_atual: pesoValue,
     lote: input.lote || null,
     pasto: input.pasto || null,
     categoria: input.categoria || null,
