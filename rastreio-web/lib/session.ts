@@ -1,18 +1,16 @@
 import { supabase } from '@/lib/supabase';
 
-const authKeys = ['token', 'oauth_provider_token', 'oauth_provider_refresh_token'];
-const appDataKeys = ['animais', 'vacinacoes', 'pesagens', 'dashboard_snapshot', 'alertas_lidas', 'configuracoes'];
+const authKeys = new Set(['token', 'oauth_provider_token', 'oauth_provider_refresh_token']);
 
 export function clearAppStorage() {
-  if (typeof window === 'undefined') return;
+  if (typeof globalThis.window === 'undefined') return;
 
-  [window.localStorage, window.sessionStorage].forEach((storage) => {
+  [globalThis.window.localStorage, globalThis.window.sessionStorage].forEach((storage) => {
     Object.keys(storage).forEach((key) => {
       const normalized = String(key);
-      const isAuthKey = authKeys.includes(normalized) || normalized.startsWith('supabase.auth') || (normalized.includes('supabase') && normalized.includes('auth'));
-      const isAppDataKey = appDataKeys.some((storedKey) => normalized === storedKey || normalized.startsWith(`${storedKey}:`));
+      const isAuthKey = authKeys.has(normalized) || normalized.startsWith('supabase.auth') || (normalized.includes('supabase') && normalized.includes('auth'));
 
-      if (isAuthKey || isAppDataKey) {
+      if (isAuthKey) {
         storage.removeItem(normalized);
       }
     });
@@ -20,9 +18,7 @@ export function clearAppStorage() {
 }
 
 export function clearAllAppStorage() {
-  if (typeof window === 'undefined') return;
-  window.localStorage.clear();
-  window.sessionStorage.clear();
+  clearAppStorage();
 }
 
 export async function getSessionToken(): Promise<string | null> {

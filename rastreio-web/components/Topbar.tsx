@@ -6,11 +6,11 @@ import { useRouter } from 'next/navigation';
 import { Modal } from './ui/Modal';
 import { SinoNotificacoes } from './SinoNotificacoes';
 import { supabase } from '@/lib/supabase';
-import { clearAllAppStorage } from '@/lib/session';
+import { clearAppStorage } from '@/lib/session';
 
 interface TopbarProps {
-  userEmail: string;
-  fazendaNome: string;
+  readonly userEmail: string;
+  readonly fazendaNome: string;
 }
 
 export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
@@ -38,7 +38,7 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
     setLoading(true);
     try {
       await supabase.auth.signOut();
-      clearAllAppStorage();
+      clearAppStorage();
       router.replace('/login');
     } finally {
       setLoading(false);

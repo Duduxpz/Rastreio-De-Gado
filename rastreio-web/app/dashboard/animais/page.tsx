@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
 import { VaccinationScheduler } from '@/lib/vaccination-scheduler';
+import { saveAnimalToSupabase } from '@/lib/fazenda';
 import type { Animal, Categoria, Sexo } from '@/types';
 
 export default function AnimaisPage() {
@@ -40,11 +41,22 @@ export default function AnimaisPage() {
   const carregarAnimais = async () => {
     try {
       setLoading(true);
-      // Preferir dados locais (localStorage) para fluxo offline/rápido
+
+      const { data, error } = await supabase
+        .from('animais')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setAnimais(data as Animal[]);
+        return;
+      }
+
       const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
       if (stored) {
         const locais = JSON.parse(stored || '[]');
-        // Mapear para formato usado pela UI (compatível com backend)
         const mapped = locais.map((a: any) => ({
           id: a.id,
           fazenda_id: a.fazenda_id || '',
@@ -62,14 +74,6 @@ export default function AnimaisPage() {
           updated_at: a.updated_at || new Date().toISOString(),
         }));
         setAnimais(mapped || []);
-      } else {
-        const { data, error } = await supabase
-          .from('animais')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setAnimais(data || []);
       }
     } catch (error) {
       console.error('Erro ao carregar animais:', error);
@@ -78,7 +82,7 @@ export default function AnimaisPage() {
     }
   };
 
-  const handleCriarAnimal = () => {
+  const handleCriarAnimal = async () => {
     // Criar animal conforme o schema solicitado e salvar em localStorage
     const novoAnimal = {
       id: Date.now().toString(),
@@ -106,10 +110,22 @@ export default function AnimaisPage() {
     };
 
     try {
-      const existentes = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('animais') || '[]') : [];
-      const atualizados = [...existentes, novoAnimal];
+      const pesoNumerico = novoAnimal.peso ? Number(novoAnimal.peso) : undefined;
+      const savedAnimal = await saveAnimalToSupabase({
+        id: novoAnimal.id,
+        brinco: novoAnimal.brinco,
+        raca: novoAnimal.raca,
+        sexo: formData.sexo,
+        data_nascimento: novoAnimal.dataNascimento,
+        categoria: formData.categoria,
+        peso_atual: Number.isFinite(pesoNumerico) ? pesoNumerico : undefined,
+        lote: novoAnimal.lote,
+        pasto: novoAnimal.pasto,
+      });
+
       if (typeof window !== 'undefined') {
-        localStorage.setItem('animais', JSON.stringify(atualizados));
+        const existentes = JSON.parse(localStorage.getItem('animais') || '[]');
+        localStorage.setItem('animais', JSON.stringify([...existentes, novoAnimal]));
 
         const agendamentos = VaccinationScheduler.generateSchedule({
           id: novoAnimal.id,
@@ -140,25 +156,24 @@ export default function AnimaisPage() {
         localStorage.setItem('vacinacoes', JSON.stringify(vacinacoesAtualizadas));
       }
 
-      // Atualizar state local (mapear para formato UI)
-      const mapped = atualizados.map((a: any) => ({
-        id: a.id,
-        fazenda_id: a.fazenda_id || '',
-        brinco: a.brinco || '',
-        raca: a.raca || '',
-        sexo: a.sexo === 'Macho' ? 'M' : a.sexo === 'Fêmea' ? 'F' : (a.sexo || ''),
-        data_nascimento: a.dataNascimento || a.data_nascimento || '',
-        peso_atual: a.peso ? (isNaN(Number(a.peso)) ? undefined : Number(a.peso)) : undefined,
-        lote: a.lote || '',
-        pasto: a.pasto || '',
-        categoria: (a.categoria || a.categoria)?.toLowerCase() || '',
-        foto_url: a.foto_url || null,
-        ativo: true,
-        created_at: a.criadoEm || new Date().toISOString(),
-        updated_at: a.updated_at || new Date().toISOString(),
-      }));
+      const mappedAnimal = {
+        id: savedAnimal.id,
+        fazenda_id: savedAnimal.fazenda_id || '',
+        brinco: savedAnimal.brinco || '',
+        raca: savedAnimal.raca || '',
+        sexo: savedAnimal.sexo === 'M' || savedAnimal.sexo === 'F' ? savedAnimal.sexo : '',
+        data_nascimento: savedAnimal.data_nascimento || '',
+        peso_atual: savedAnimal.peso_atual ? Number(savedAnimal.peso_atual) : undefined,
+        lote: savedAnimal.lote || '',
+        pasto: savedAnimal.pasto || '',
+        categoria: (savedAnimal.categoria || '').toLowerCase(),
+        foto_url: savedAnimal.foto_url || null,
+        ativo: savedAnimal.ativo ?? true,
+        created_at: savedAnimal.created_at || new Date().toISOString(),
+        updated_at: savedAnimal.updated_at || new Date().toISOString(),
+      } as Animal;
 
-      setAnimais(mapped);
+      setAnimais((prev) => [mappedAnimal, ...prev]);
       setShowModal(false);
       setFormData({
         brinco: '',
@@ -173,8 +188,7 @@ export default function AnimaisPage() {
       });
       notificarDashboard();
     } catch (e) {
-      console.error('Erro salvando animal localmente:', e);
-      // Não mostrar alertas ou mensagens de erro conforme regra
+      console.error('Erro salvando animal no banco:', e);
     }
   };
 
