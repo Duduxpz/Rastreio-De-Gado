@@ -16,6 +16,9 @@ app.disable('x-powered-by');
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true,

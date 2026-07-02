@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getSessionToken, supabase } from '@/lib/supabase';
 import type { Animal } from '@/types';
 
 export async function createDefaultFarmForUser(userId: string, nomeFazenda = 'Minha Fazenda') {
@@ -55,15 +55,18 @@ export async function getCurrentFarmId() {
 }
 
 export async function saveAnimalToSupabase(input: Partial<Animal> & { id?: string; brinco: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
-  const fazenda_id = input.fazenda_id || (await getCurrentFarmId());
+  const token = await getSessionToken();
+  if (!token) {
+    throw new Error('Sessão expirada. Faça login novamente para continuar.');
+  }
+
   const payload = {
     id: input.id || crypto.randomUUID(),
-    fazenda_id,
     brinco: input.brinco,
     raca: input.raca || null,
     sexo: input.sexo || null,
     data_nascimento: input.data_nascimento || null,
-    peso_atual: input.peso_atual ? Number(input.peso_atual) : null,
+    peso_atual: input.peso_atual !== undefined && input.peso_atual !== null && input.peso_atual !== '' ? Number(input.peso_atual) : null,
     lote: input.lote || null,
     pasto: input.pasto || null,
     categoria: input.categoria || null,
@@ -71,11 +74,19 @@ export async function saveAnimalToSupabase(input: Partial<Animal> & { id?: strin
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase.from('animais').insert([payload]).select('*').single();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const response = await fetch(`${apiUrl}/api/animais`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
 
-  if (error) {
-    console.error('Erro ao salvar animal no Supabase:', error);
-    throw error;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.error || 'Não foi possível salvar o animal.');
   }
 
   return data as Animal;

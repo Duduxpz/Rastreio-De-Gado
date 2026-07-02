@@ -18,18 +18,26 @@ const nav = [
   { href: '/dashboard/recomendacoes', icon: Sprout, label: 'Recomendações' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const path = usePathname();
   return (
-    <aside className="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-56
-                       bg-bg-surface border-r border-bg-border
-                       flex flex-col justify-between py-4 z-20">
+    <aside className={`fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-72 max-w-[85vw]
+                      bg-bg-surface border-r border-bg-border shadow-lg
+                      flex flex-col justify-between py-4 z-20 transition-transform duration-200
+                      ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                      md:w-56`}>
       <nav className="flex flex-col gap-0.5 px-2">
         {nav.map(({ href, icon: Icon, label }) => {
           const active = path === href;
           const iconClasses = active ? 'text-text-inverse' : 'text-brand-light';
           return (
             <Link key={href} href={href}
+              onClick={() => onClose()}
               className={`
                 flex items-center gap-3 px-3 py-2.5 rounded-lg
                 text-sm font-medium transition-all duration-150

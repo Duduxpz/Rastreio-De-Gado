@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Modal } from './ui/Modal';
 import { SinoNotificacoes } from './SinoNotificacoes';
@@ -11,9 +11,10 @@ import { clearAppStorage } from '@/lib/session';
 interface TopbarProps {
   readonly userEmail: string;
   readonly fazendaNome: string;
+  readonly onMenuToggle?: () => void;
 }
 
-export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
+export function Topbar({ userEmail, fazendaNome, onMenuToggle }: TopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -52,9 +53,17 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
       <header className="fixed top-0 left-0 right-0 h-14 z-30
                          bg-bg-base/80 backdrop-blur-md
                          border-b border-bg-border
-                         flex items-center justify-between px-6">
+                         flex items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onMenuToggle}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-bg-border bg-bg-elevated text-text-secondary md:hidden"
+            aria-label="Abrir menu"
+          >
+            <Menu size={18} />
+          </button>
           <div className="w-7 h-7 rounded-lg bg-[#22C55E]
                           flex items-center justify-center text-white
                           font-bold text-sm shadow-[0_0_16px_rgba(34,197,94,0.8)]">
