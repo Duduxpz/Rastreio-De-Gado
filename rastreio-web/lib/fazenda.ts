@@ -54,14 +54,15 @@ export async function getCurrentFarmId() {
   return (await createDefaultFarmForUser(user.id)).id as string;
 }
 
-export async function saveAnimalToSupabase(input: Partial<Animal> & { id?: string; brinco: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
+export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_atual'> & { id?: string; brinco: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
   const token = await getSessionToken();
   if (!token) {
     throw new Error('Sessão expirada. Faça login novamente para continuar.');
   }
 
-  const pesoInformado = input.peso_atual !== undefined && input.peso_atual !== null && input.peso_atual !== '';
-  const pesoValue = pesoInformado ? Number(input.peso_atual) : null;
+  const pesoString = typeof input.peso_atual === 'string' ? input.peso_atual.trim() : '';
+  const pesoInformado = input.peso_atual !== undefined && input.peso_atual !== null && pesoString !== '';
+  const pesoValue = pesoInformado ? Number(pesoString) : null;
   const payload = {
     id: input.id || crypto.randomUUID(),
     brinco: input.brinco,
