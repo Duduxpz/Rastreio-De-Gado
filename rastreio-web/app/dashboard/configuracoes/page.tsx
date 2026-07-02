@@ -5,6 +5,9 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Toast, type ToastMessage } from '@/components/ui/Toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface Config {
   nomeFazenda: string;
@@ -32,19 +35,60 @@ export default function ConfiguracoesPage() {
   const [config, setConfig] = useState<Config>(configPadrao);
   const [salvo, setSalvo] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const { user, profile, refreshProfile, setFarmName } = useAuth();
 
   useEffect(() => {
     const saved = localStorage.getItem('configuracoes');
     if (saved) {
-      setConfig(JSON.parse(saved));
+      const parsed = JSON.parse(saved) as Config;
+      setConfig(parsed);
     }
-    setLoading(false);
-  }, []);
 
-  const handleSalvar = () => {
-    localStorage.setItem('configuracoes', JSON.stringify(config));
-    setSalvo(true);
-    setTimeout(() => setSalvo(false), 2500);
+    if (profile?.farm_name) {
+      setConfig((prev) => ({ ...prev, nomeFazenda: profile.farm_name || prev.nomeFazenda }));
+    }
+
+    setLoading(false);
+  }, [profile]);
+
+  const addToast = (message: string, type: ToastMessage['type']) => {
+    const id = `${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+  };
+
+  const handleSalvar = async () => {
+    const farmName = (config.nomeFazenda || 'Minha Fazenda').trim() || 'Minha Fazenda';
+    setSaving(true);
+
+    try {
+      localStorage.setItem('configuracoes', JSON.stringify({ ...config, nomeFazenda: farmName }));
+
+      if (user?.id) {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ farm_name: farmName })
+          .eq('id', user.id);
+
+        if (error) {
+          throw error;
+        }
+
+        await setFarmName(farmName);
+        await refreshProfile();
+      }
+
+      setConfig((prev) => ({ ...prev, nomeFazenda: farmName }));
+      setSalvo(true);
+      addToast('Nome da fazenda atualizado com sucesso.', 'success');
+      setTimeout(() => setSalvo(false), 2500);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao salvar as configurações.';
+      addToast(message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleExportarJSON = () => {
@@ -320,10 +364,12 @@ export default function ConfiguracoesPage() {
             ✓ Configurações salvas!
           </p>
         )}
-        <Button variant="primary" onClick={handleSalvar}>
+        <Button variant="primary" onClick={handleSalvar} loading={saving}>
           Salvar Configurações
         </Button>
       </div>
+
+      <Toast toasts={toasts} onRemove={(id) => setToasts((prev) => prev.filter((toast) => toast.id !== id))} />
     </div>
   );
 }

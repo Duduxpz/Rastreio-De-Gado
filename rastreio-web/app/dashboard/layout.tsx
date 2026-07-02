@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { Topbar } from '@/components/Topbar';
 import { Sidebar } from '@/components/Sidebar';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout({
   children,
@@ -13,35 +13,21 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, farmName, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          router.replace('/login');
-          return;
-        }
-        setUser(session.user);
-      } catch (error) {
-        router.replace('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [authLoading, router, user]);
 
-    checkAuth();
-  }, [router]);
-
-  if (loading) {
+  if (authLoading) {
     return <LoadingState />;
   }
 
   return (
     <div className="min-h-screen bg-bg-base font-sans">
-      <Topbar userEmail={user?.email} fazendaNome="Fazenda São João" />
+      <Topbar userEmail={user?.email} fazendaNome={farmName} />
       <Sidebar />
       <main className="pl-56 pt-14">
         <div className="px-8 py-6 max-w-7xl">

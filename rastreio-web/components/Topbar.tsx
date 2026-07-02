@@ -7,10 +7,11 @@ import { Modal } from './ui/Modal';
 import { SinoNotificacoes } from './SinoNotificacoes';
 import { supabase } from '@/lib/supabase';
 import { clearAppStorage } from '@/lib/session';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TopbarProps {
-  readonly userEmail: string;
-  readonly fazendaNome: string;
+  readonly userEmail?: string;
+  readonly fazendaNome?: string;
 }
 
 export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
@@ -19,6 +20,7 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const { user, farmName, loading: profileLoading } = useAuth();
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -33,6 +35,11 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
 
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [menuOpen]);
+
+  const displayEmail = userEmail ?? user?.email ?? '';
+  const displayName = user?.user_metadata?.full_name || displayEmail || 'Usuário';
+  const displayFarmName = fazendaNome || farmName || 'Minha Fazenda';
+  const initial = displayName?.[0]?.toUpperCase() ?? '?';
 
   const handleLogout = async () => {
     setLoading(true);
@@ -64,7 +71,7 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
             Rastreio
           </span>
           <span className="text-bg-border">|</span>
-          <span className="text-xs text-text-muted">{fazendaNome}</span>
+          <span className="text-xs text-text-muted">{profileLoading ? 'Carregando...' : displayFarmName}</span>
         </div>
 
         {/* Direita */}
@@ -81,10 +88,10 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
               <div className="w-6 h-6 rounded-full bg-cta-DEFAULT
                               flex items-center justify-center text-[10px]
                               font-bold text-text-inverse">
-                {userEmail?.[0]?.toUpperCase() ?? '?'}
+                {initial}
               </div>
               <span className="text-xs text-text-secondary max-w-[140px] truncate">
-                {userEmail}
+                {displayEmail}
               </span>
               <ChevronDown size={12} className="text-text-muted" />
             </button>
