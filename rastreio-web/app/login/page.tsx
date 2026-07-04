@@ -105,6 +105,10 @@ const processAuthAction = async (state: LoginState, actions: LoginActions) => {
 
     try {
       await saveFarmNameForUser(userId, state.farmName);
+      if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
+        globalThis.localStorage.setItem('farm_name', state.farmName.trim());
+        globalThis.window?.dispatchEvent(new Event('farm-name-updated'));
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao criar a fazenda inicial.';
       actions.setGlobalError(formatErrorMessage(message));

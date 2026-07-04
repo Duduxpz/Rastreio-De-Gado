@@ -1,5 +1,5 @@
 export type Sexo = 'M' | 'F';
-export type Categoria = 'bezerro' | 'novilha' | 'vaca' | 'touro' | 'boi' | 'outro';
+export type Categoria = 'bezerro' | 'novilha' | 'vaca' | 'touro' | 'boi' | 'potro' | 'cavalo' | 'ovelha' | 'carneiro' | 'cabra' | 'bode' | 'porco' | 'leitão' | 'frango' | 'galinha' | 'galo' | 'outro';
 
 export interface Animal {
   id: string;
@@ -12,6 +12,7 @@ export interface Animal {
   lote?: string;
   pasto?: string;
   categoria?: Categoria;
+  especie?: string;
   foto_url?: string;
   ativo: boolean;
   created_at: string;
