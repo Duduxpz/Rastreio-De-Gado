@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Topbar } from '@/components/Topbar';
 import { Sidebar } from '@/components/Sidebar';
@@ -14,6 +14,7 @@ export default function DashboardLayout({
 }>) {
   const router = useRouter();
   const { user, farmName, loading: authLoading } = useAuth();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -27,10 +28,15 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-bg-base font-sans">
-      <Topbar userEmail={user?.email} fazendaNome={farmName} />
-      <Sidebar />
-      <main className="pl-56 pt-14">
-        <div className="px-8 py-6 max-w-7xl">
+      <Topbar
+        userEmail={user?.email}
+        fazendaNome={farmName}
+        onMenuToggle={() => setMobileSidebarOpen((value) => !value)}
+        isMenuOpen={mobileSidebarOpen}
+      />
+      <Sidebar mobileOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+      <main className="pt-16 md:pt-14 md:pl-56">
+        <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 md:px-8 md:py-6">
           {children}
         </div>
       </main>

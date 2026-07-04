@@ -40,15 +40,14 @@ export default function ConfiguracoesPage() {
   const { user, profile, refreshProfile, setFarmName } = useAuth();
 
   useEffect(() => {
-    const saved = localStorage.getItem('configuracoes');
+    const saved = globalThis.localStorage?.getItem('configuracoes');
     if (saved) {
       const parsed = JSON.parse(saved) as Config;
       setConfig(parsed);
     }
 
-    if (profile?.farm_name) {
-      setConfig((prev) => ({ ...prev, nomeFazenda: profile.farm_name || prev.nomeFazenda }));
-    }
+    const farmNameFromProfile = profile?.farm_name?.trim() || globalThis.localStorage?.getItem('farm_name') || 'Minha Fazenda';
+    setConfig((prev) => ({ ...prev, nomeFazenda: farmNameFromProfile || prev.nomeFazenda }));
 
     setLoading(false);
   }, [profile]);
@@ -63,7 +62,9 @@ export default function ConfiguracoesPage() {
     setSaving(true);
 
     try {
-      localStorage.setItem('configuracoes', JSON.stringify({ ...config, nomeFazenda: farmName }));
+      globalThis.localStorage?.setItem('configuracoes', JSON.stringify({ ...config, nomeFazenda: farmName }));
+      globalThis.localStorage?.setItem('farm_name', farmName);
+      globalThis.window?.dispatchEvent(new Event('farm-name-updated'));
 
       if (user?.id) {
         const { error } = await supabase
