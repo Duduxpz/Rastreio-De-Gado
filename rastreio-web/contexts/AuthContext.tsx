@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { getUserProfile, saveFarmNameForUser, type UserProfile } from '@/lib/profile';
+import { getUserProfile, saveFarmNameForUser, saveConfiguracoesForUser, type UserProfile } from '@/lib/profile';
 
 interface AuthContextValue {
   user: any | null;
@@ -11,6 +11,7 @@ interface AuthContextValue {
   farmName: string;
   refreshProfile: () => Promise<void>;
   setFarmName: (farmName: string) => Promise<void>;
+  saveConfiguracoes: (farmName: string, configuracoes: Record<string, any>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -67,6 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(updatedProfile);
   }, []);
 
+  const saveConfiguracoes = useCallback(async (farmName: string, configuracoes: Record<string, any>) => {
+    const result = await supabase.auth.getUser();
+    const currentUser = result.data?.user ?? null;
+
+    if (!currentUser?.id) {
+      throw new Error('Usuário não autenticado.');
+    }
+
+    const updatedProfile = await saveConfiguracoesForUser(currentUser.id, farmName, configuracoes);
+    setProfile(updatedProfile);
+  }, []);
+
   useEffect(() => {
     const initializeAuth = async () => {
       const result = await supabase.auth.getSession();
@@ -95,7 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     farmName: profile?.farm_name?.trim() ? profile.farm_name : 'Minha Fazenda',
     refreshProfile,
     setFarmName,
-  }), [loading, profile, refreshProfile, setFarmName, user]);
+    saveConfiguracoes,
+  }), [loading, profile, refreshProfile, saveConfiguracoes, setFarmName, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

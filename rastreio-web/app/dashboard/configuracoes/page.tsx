@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,8 +9,7 @@ import { Toast, type ToastMessage } from '@/components/ui/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-interface Config {
-  nomeFazenda: string;
+interface Preferencias {
   responsavel: string;
   cnpj: string;
   cidadeEstado: string;
@@ -20,8 +19,7 @@ interface Config {
   emailAlerta: string;
 }
 
-const configPadrao: Config = {
-  nomeFazenda: 'Fazenda São João',
+const preferenciasPadrao: Preferencias = {
   responsavel: '',
   cnpj: '',
   cidadeEstado: '',
@@ -32,25 +30,23 @@ const configPadrao: Config = {
 };
 
 export default function ConfiguracoesPage() {
-  const [config, setConfig] = useState<Config>(configPadrao);
+  const { user, profile, loading: authLoading, saveConfiguracoes } = useAuth();
+  const [nomeFazenda, setNomeFazenda] = useState('');
+  const [preferencias, setPreferencias] = useState<Preferencias>(preferenciasPadrao);
   const [salvo, setSalvo] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const { user, profile, refreshProfile, setFarmName } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Tudo o que o usuário vê aqui vem do profile carregado do Supabase
+  // (tabela "profiles", isolado por usuário via RLS). Assim, ao fazer login
+  // em qualquer dispositivo, as próprias configurações reaparecem.
   useEffect(() => {
-    const saved = localStorage.getItem('configuracoes');
-    if (saved) {
-      const parsed = JSON.parse(saved) as Config;
-      setConfig(parsed);
-    }
+    if (!profile) return;
 
-    if (profile?.farm_name) {
-      setConfig((prev) => ({ ...prev, nomeFazenda: profile.farm_name || prev.nomeFazenda }));
-    }
-
-    setLoading(false);
+    setNomeFazenda(profile.farm_name || 'Minha Fazenda');
+    setPreferencias({ ...preferenciasPadrao, ...(profile.configuracoes || {}) });
   }, [profile]);
 
   const addToast = (message: string, type: ToastMessage['type']) => {
@@ -58,30 +54,23 @@ export default function ConfiguracoesPage() {
     setToasts((prev) => [...prev, { id, message, type }]);
   };
 
+  const setPref = (campo: keyof Preferencias, valor: any) =>
+    setPreferencias((prev) => ({ ...prev, [campo]: valor }));
+
   const handleSalvar = async () => {
-    const farmName = (config.nomeFazenda || 'Minha Fazenda').trim() || 'Minha Fazenda';
+    const farmName = (nomeFazenda || 'Minha Fazenda').trim() || 'Minha Fazenda';
+
+    if (!user?.id) {
+      addToast('Sessão expirada. Faça login novamente para salvar.', 'error');
+      return;
+    }
+
     setSaving(true);
-
     try {
-      localStorage.setItem('configuracoes', JSON.stringify({ ...config, nomeFazenda: farmName }));
-
-      if (user?.id) {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ farm_name: farmName })
-          .eq('id', user.id);
-
-        if (error) {
-          console.warn('Falha no update do profile, tentando criar/atualizar via upsert:', error);
-        }
-
-        await setFarmName(farmName);
-        await refreshProfile();
-      }
-
-      setConfig((prev) => ({ ...prev, nomeFazenda: farmName }));
+      await saveConfiguracoes(farmName, preferencias);
+      setNomeFazenda(farmName);
       setSalvo(true);
-      addToast('Nome da fazenda atualizado com sucesso.', 'success');
+      addToast('Configurações salvas com sucesso.', 'success');
       setTimeout(() => setSalvo(false), 2500);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao salvar as configurações.';
@@ -91,89 +80,84 @@ export default function ConfiguracoesPage() {
     }
   };
 
-  const handleExportarJSON = () => {
-    const dados = {
-      animais: JSON.parse(localStorage.getItem('animais') || '[]'),
-      vacinacoes: JSON.parse(localStorage.getItem('vacinacoes') || '[]'),
-      pesagens: JSON.parse(localStorage.getItem('pesagens') || '[]'),
-      configuracoes: config,
-      exportadoEm: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(dados, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rastreio-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const handleExportarJSON = async () => {
+    if (!user?.id) return;
+    setExporting(true);
+    try {
+      const [{ data: animais }, { data: vacinacoes }, { data: pesagens }] = await Promise.all([
+        supabase.from('animais').select('*'),
+        supabase.from('vacinacoes').select('*'),
+        supabase.from('pesagens').select('*'),
+      ]);
 
-  const handleImportarJSON = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e: any) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const dados = JSON.parse(ev.target?.result as string);
-          if (dados.animais)
-            localStorage.setItem('animais', JSON.stringify(dados.animais));
-          if (dados.vacinacoes)
-            localStorage.setItem('vacinacoes', JSON.stringify(dados.vacinacoes));
-          if (dados.pesagens)
-            localStorage.setItem('pesagens', JSON.stringify(dados.pesagens));
-          if (dados.configuracoes) {
-            localStorage.setItem(
-              'configuracoes',
-              JSON.stringify(dados.configuracoes)
-            );
-            setConfig(dados.configuracoes);
-          }
-          window.dispatchEvent(new Event('storage'));
-          setSalvo(true);
-          setTimeout(() => setSalvo(false), 2500);
-        } catch {
-          console.error('Erro ao importar arquivo');
-        }
+      const dados = {
+        fazenda: nomeFazenda,
+        preferencias,
+        animais: animais || [],
+        vacinacoes: vacinacoes || [],
+        pesagens: pesagens || [],
+        exportadoEm: new Date().toISOString(),
       };
-      reader.readAsText(file);
-    };
-    input.click();
-  };
 
-  const handleLimparDados = () => {
-    if (
-      typeof window !== 'undefined' &&
-      confirm(
-        'Tem certeza que deseja limpar TODOS os dados? Esta ação não pode ser desfeita.'
-      )
-    ) {
-      localStorage.removeItem('animais');
-      localStorage.removeItem('vacinacoes');
-      localStorage.removeItem('pesagens');
-      localStorage.removeItem('alertas_lidas');
-      localStorage.removeItem('dashboard_snapshot');
-      window.dispatchEvent(new Event('storage'));
-      setSalvo(true);
-      setTimeout(() => setSalvo(false), 2500);
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rastreio-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addToast('Backup exportado com os dados atuais da sua conta.', 'success');
+    } catch (error) {
+      addToast('Não foi possível exportar os dados agora.', 'error');
+    } finally {
+      setExporting(false);
     }
   };
 
-  const set = (campo: keyof Config, valor: any) =>
-    setConfig((prev) => ({ ...prev, [campo]: valor }));
+  const handleImportarPreferencias = () => {
+    fileInputRef.current?.click();
+  };
 
-  if (loading) {
+  const handleArquivoSelecionado = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const dados = JSON.parse(ev.target?.result as string);
+        // Por segurança, este importador restaura apenas as preferências
+        // (nome da fazenda, alertas, etc.). Animais e vacinações já vivem
+        // no Supabase e são cadastrados pela tela de Animais.
+        if (dados.preferencias) {
+          setPreferencias({ ...preferenciasPadrao, ...dados.preferencias });
+        }
+        if (dados.fazenda) {
+          setNomeFazenda(dados.fazenda);
+        }
+        addToast('Preferências carregadas do arquivo. Clique em Salvar para confirmar.', 'success');
+      } catch {
+        addToast('Não foi possível ler o arquivo selecionado.', 'error');
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRestaurarPadrao = () => {
+    if (typeof window === 'undefined') return;
+    if (!confirm('Restaurar as preferências desta tela para os valores padrão? O nome da fazenda não será alterado.')) {
+      return;
+    }
+    setPreferencias(preferenciasPadrao);
+    addToast('Preferências redefinidas. Clique em Salvar para confirmar.', 'success');
+  };
+
+  if (authLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Configurações"
-          description="Carregando..."
-        />
+        <PageHeader title="Configurações" description="Carregando..." />
       </div>
     );
   }
@@ -183,7 +167,7 @@ export default function ConfiguracoesPage() {
       {/* Header */}
       <PageHeader
         title="Configurações"
-        description="Preferências e configurações do sistema"
+        description="Preferências da sua conta — salvas no Supabase e disponíveis em qualquer login"
       />
 
       {/* Seção Fazenda */}
@@ -198,8 +182,8 @@ export default function ConfiguracoesPage() {
             </label>
             <Input
               type="text"
-              value={config.nomeFazenda}
-              onChange={(e) => set('nomeFazenda', e.target.value)}
+              value={nomeFazenda}
+              onChange={(e) => setNomeFazenda(e.target.value)}
               placeholder="Ex: Fazenda São João"
             />
           </div>
@@ -209,8 +193,8 @@ export default function ConfiguracoesPage() {
             </label>
             <Input
               type="text"
-              value={config.responsavel}
-              onChange={(e) => set('responsavel', e.target.value)}
+              value={preferencias.responsavel}
+              onChange={(e) => setPref('responsavel', e.target.value)}
               placeholder="Nome do responsável"
             />
           </div>
@@ -221,8 +205,8 @@ export default function ConfiguracoesPage() {
               </label>
               <Input
                 type="text"
-                value={config.cnpj}
-                onChange={(e) => set('cnpj', e.target.value)}
+                value={preferencias.cnpj}
+                onChange={(e) => setPref('cnpj', e.target.value)}
                 placeholder="00.000.000/0000-00"
               />
             </div>
@@ -232,8 +216,8 @@ export default function ConfiguracoesPage() {
               </label>
               <Input
                 type="text"
-                value={config.cidadeEstado}
-                onChange={(e) => set('cidadeEstado', e.target.value)}
+                value={preferencias.cidadeEstado}
+                onChange={(e) => setPref('cidadeEstado', e.target.value)}
                 placeholder="São Paulo, SP"
               />
             </div>
@@ -255,10 +239,8 @@ export default function ConfiguracoesPage() {
               <Input
                 type="number"
                 min="1"
-                value={config.diasAlertaVacinacao}
-                onChange={(e) =>
-                  set('diasAlertaVacinacao', Number(e.target.value))
-                }
+                value={preferencias.diasAlertaVacinacao}
+                onChange={(e) => setPref('diasAlertaVacinacao', Number(e.target.value))}
                 placeholder="7"
               />
               <p className="text-xs text-text-muted mt-1">
@@ -272,8 +254,8 @@ export default function ConfiguracoesPage() {
               <Input
                 type="number"
                 min="1"
-                value={config.diasAlertaPesagem}
-                onChange={(e) => set('diasAlertaPesagem', Number(e.target.value))}
+                value={preferencias.diasAlertaPesagem}
+                onChange={(e) => setPref('diasAlertaPesagem', Number(e.target.value))}
                 placeholder="30"
               />
               <p className="text-xs text-text-muted mt-1">
@@ -286,8 +268,8 @@ export default function ConfiguracoesPage() {
             <label className="flex items-center gap-3">
               <input
                 type="checkbox"
-                checked={config.alertaEmail}
-                onChange={(e) => set('alertaEmail', e.target.checked)}
+                checked={preferencias.alertaEmail}
+                onChange={(e) => setPref('alertaEmail', e.target.checked)}
                 className="w-4 h-4 rounded border-bg-border bg-bg-elevated cursor-pointer"
               />
               <span className="text-sm text-text-secondary">
@@ -296,15 +278,15 @@ export default function ConfiguracoesPage() {
             </label>
           </div>
 
-          {config.alertaEmail && (
+          {preferencias.alertaEmail && (
             <div>
               <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
                 E-mail para Alertas
               </label>
               <Input
                 type="email"
-                value={config.emailAlerta}
-                onChange={(e) => set('emailAlerta', e.target.value)}
+                value={preferencias.emailAlerta}
+                onChange={(e) => setPref('emailAlerta', e.target.value)}
                 placeholder="seu@email.com"
               />
             </div>
@@ -320,32 +302,42 @@ export default function ConfiguracoesPage() {
         <div className="space-y-3 mb-4">
           <button
             onClick={handleExportarJSON}
+            disabled={exporting}
+            className="w-full px-4 py-2.5 rounded-lg border border-green-600/30
+                       text-green-400 hover:bg-green-900/20 transition-colors
+                       text-sm font-medium disabled:opacity-50"
+          >
+            {exporting ? 'Exportando...' : '↓ Exportar dados da conta (JSON)'}
+          </button>
+          <button
+            onClick={handleImportarPreferencias}
             className="w-full px-4 py-2.5 rounded-lg border border-green-600/30
                        text-green-400 hover:bg-green-900/20 transition-colors
                        text-sm font-medium"
           >
-            ↓ Exportar todos os dados (JSON)
+            ↑ Importar preferências (JSON)
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleArquivoSelecionado}
+          />
           <button
-            onClick={handleImportarJSON}
-            className="w-full px-4 py-2.5 rounded-lg border border-green-600/30
-                       text-green-400 hover:bg-green-900/20 transition-colors
-                       text-sm font-medium"
-          >
-            ↑ Importar dados (JSON)
-          </button>
-          <button
-            onClick={handleLimparDados}
+            onClick={handleRestaurarPadrao}
             className="w-full px-4 py-2.5 rounded-lg border border-red-600/30
                        text-red-400 hover:bg-red-900/20 transition-colors
                        text-sm font-medium"
           >
-            🗑 Limpar todos os dados
+            🗑 Restaurar preferências padrão
           </button>
         </div>
         <p className="text-xs text-text-muted">
-          O backup exporta animais, vacinações, pesagens e configurações em
-          formato JSON. Ao importar, os dados existentes serão substituídos.
+          O backup exporta os animais, vacinações, pesagens e preferências
+          desta conta, direto do banco de dados. Animais e vacinações são
+          gerenciados na tela de Animais e não são alterados por este
+          importador — apenas as preferências acima.
         </p>
       </Card>
 
@@ -355,6 +347,9 @@ export default function ConfiguracoesPage() {
           ℹ️ Sistema
         </h2>
         <p className="text-sm text-text-muted">Versão 1.0.0 — Rastreio</p>
+        <p className="text-xs text-text-muted mt-1">
+          Conectado como {user?.email}
+        </p>
       </Card>
 
       {/* Footer com botão salvar */}
