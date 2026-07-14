@@ -2,78 +2,72 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import { Topbar } from '@/components/Topbar';
 import { Sidebar } from '@/components/Sidebar';
 import { LoadingState } from '@/components/ui/LoadingState';
-import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   const router = useRouter();
-  const { user, farmName, loading: authLoading } = useAuth();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Sync initial sidebar visibility with viewport: desktop (>=1024) open by default
   useEffect(() => {
-    const sync = () => setSidebarOpen(window.innerWidth >= 1024);
-    sync();
-    window.addEventListener('resize', sync);
-    return () => window.removeEventListener('resize', sync);
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.replace('/login');
+          return;
+        }
+        setUser(session.user);
+      } catch (error) {
+        router.replace('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  useEffect(() => {
+    const syncSidebarState = () => {
+      setSidebarOpen(window.innerWidth >= 768);
+    };
+
+    syncSidebarState();
+    window.addEventListener('resize', syncSidebarState);
+    return () => window.removeEventListener('resize', syncSidebarState);
   }, []);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/login');
-    }
-  }, [authLoading, router, user]);
-
-  // Block body scroll when drawer is open (mobile)
-  useEffect(() => {
-    if (sidebarOpen) {
-      const previous = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = previous; };
-    }
-    return undefined;
-  }, [sidebarOpen]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && sidebarOpen) setSidebarOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [sidebarOpen]);
-
-  if (authLoading) {
+  if (loading) {
     return <LoadingState />;
   }
 
   return (
-    <div className="min-h-screen bg-bg-base font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-bg-base font-sans">
       <Topbar
         userEmail={user?.email}
-        fazendaNome={farmName}
-        isMenuOpen={sidebarOpen}
-        onMenuToggle={() => setSidebarOpen((v) => !v)}
+        fazendaNome="Fazenda São João"
+        onMenuToggle={() => setSidebarOpen((prev) => !prev)}
       />
-
-      {/* Overlay (mobile) */}
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          className="fixed inset-0 z-10 bg-black/40 md:hidden"
           onClick={() => setSidebarOpen(false)}
-          aria-hidden
         />
       )}
-
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="pt-14 lg:pl-56">
-        <div className="px-4 md:px-8 py-6 max-w-7xl">
+      <main className="pt-14 md:pl-56">
+        <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           {children}
         </div>
       </main>

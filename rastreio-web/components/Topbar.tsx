@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Menu } from 'lucide-react';
@@ -7,22 +7,19 @@ import { Modal } from './ui/Modal';
 import { SinoNotificacoes } from './SinoNotificacoes';
 import { supabase } from '@/lib/supabase';
 import { clearAppStorage } from '@/lib/session';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface TopbarProps {
-  readonly userEmail?: string;
-  readonly fazendaNome?: string;
-  readonly isMenuOpen?: boolean;
+  readonly userEmail: string;
+  readonly fazendaNome: string;
   readonly onMenuToggle?: () => void;
 }
 
-export function Topbar({ userEmail, fazendaNome, isMenuOpen, onMenuToggle }: TopbarProps) {
+export function Topbar({ userEmail, fazendaNome, onMenuToggle }: TopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const { user, farmName, loading: profileLoading } = useAuth();
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -37,11 +34,6 @@ export function Topbar({ userEmail, fazendaNome, isMenuOpen, onMenuToggle }: Top
 
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [menuOpen]);
-
-  const displayEmail = userEmail ?? (user?.email as string | undefined) ?? '';
-  const displayName = ((user?.user_metadata?.full_name as string | undefined) || displayEmail || 'Usuário') as string;
-  const displayFarmName = fazendaNome || farmName || 'Minha Fazenda';
-  const initial = displayName?.[0]?.toUpperCase() ?? '?';
 
   const handleLogout = async () => {
     setLoading(true);
@@ -61,18 +53,16 @@ export function Topbar({ userEmail, fazendaNome, isMenuOpen, onMenuToggle }: Top
       <header className="fixed top-0 left-0 right-0 h-14 z-30
                          bg-bg-base/80 backdrop-blur-md
                          border-b border-bg-border
-                         flex items-center justify-between px-6">
+                         flex items-center justify-between px-4 sm:px-6">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          {/* Hamburger - mobile only */}
           <button
-            onClick={() => onMenuToggle?.()}
-            aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
-            className="mr-2 w-10 h-10 flex items-center justify-center rounded-md
-                       focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-cta-DEFAULT
-                       md:hidden"
+            type="button"
+            onClick={onMenuToggle}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-bg-border bg-bg-elevated text-text-secondary md:hidden"
+            aria-label="Abrir menu"
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
           <div className="w-7 h-7 rounded-lg bg-[#22C55E]
                           flex items-center justify-center text-white
@@ -83,7 +73,7 @@ export function Topbar({ userEmail, fazendaNome, isMenuOpen, onMenuToggle }: Top
             Rastreio
           </span>
           <span className="text-bg-border">|</span>
-          <span className="text-xs text-text-muted hidden md:inline-block">{profileLoading ? 'Carregando...' : displayFarmName}</span>
+          <span className="text-xs text-text-muted">{fazendaNome}</span>
         </div>
 
         {/* Direita */}
@@ -100,10 +90,10 @@ export function Topbar({ userEmail, fazendaNome, isMenuOpen, onMenuToggle }: Top
               <div className="w-6 h-6 rounded-full bg-cta-DEFAULT
                               flex items-center justify-center text-[10px]
                               font-bold text-text-inverse">
-                {initial}
+                {userEmail?.[0]?.toUpperCase() ?? '?'}
               </div>
-              <span className="text-xs text-text-secondary max-w-[140px] truncate hidden md:inline-block">
-                {displayEmail}
+              <span className="text-xs text-text-secondary max-w-[140px] truncate">
+                {userEmail}
               </span>
               <ChevronDown size={12} className="text-text-muted" />
             </button>
