@@ -1,0 +1,1695 @@
+diff --git a/rastreio-api/migrations/004_add_especie_nome_configuracoes.sql b/rastreio-api/migrations/004_add_especie_nome_configuracoes.sql
+new file mode 100644
+index 0000000..0ded3a0
+--- /dev/null
++++ b/rastreio-api/migrations/004_add_especie_nome_configuracoes.sql
+@@ -0,0 +1,105 @@
++-- Migration: suporte a múltiplas espécies, nome do animal, created_at e
++-- configurações persistentes por usuário (fazenda).
++-- Execute no SQL Editor do Supabase (ou via CLI de migrations) do projeto.
++
++-- 1) Tabela "animais": adicionar espécie, nome e created_at ------------------
++ALTER TABLE animais
++  ADD COLUMN IF NOT EXISTS especie TEXT NOT NULL DEFAULT 'bovino',
++  ADD COLUMN IF NOT EXISTS nome TEXT,
++  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now();
++
++-- Backfill created_at para linhas antigas que não tinham a coluna
++UPDATE animais SET created_at = updated_at WHERE created_at IS NULL;
++
++-- Restringe a espécie a um conjunto conhecido
++ALTER TABLE animais DROP CONSTRAINT IF EXISTS animais_especie_check;
++ALTER TABLE animais
++  ADD CONSTRAINT animais_especie_check
++  CHECK (especie IN ('bovino', 'equino', 'ovino', 'caprino', 'suino', 'ave'));
++
++-- A antiga constraint de categoria só previa categorias de bovino.
++-- Agora cada espécie tem seu próprio conjunto de categorias válidas.
++ALTER TABLE animais DROP CONSTRAINT IF EXISTS animais_categoria_check;
++ALTER TABLE animais
++  ADD CONSTRAINT animais_categoria_check
++  CHECK (
++    categoria IS NULL OR (
++      (especie = 'bovino' AND categoria IN ('bezerro','novilha','vaca','touro','boi','outro')) OR
++      (especie = 'equino' AND categoria IN ('potro','potranca','egua','garanhao','castrado','outro')) OR
++      (especie = 'ovino'  AND categoria IN ('cordeiro','borrega','ovelha','carneiro','outro')) OR
++      (especie = 'caprino' AND categoria IN ('cabrito','caprina','cabra','bode','outro')) OR
++      (especie = 'suino'  AND categoria IN ('leitao','marra','porca','cachaco','outro')) OR
++      (especie = 'ave'    AND categoria IN ('pintainho','frango','poedeira','matriz','reprodutor','outro'))
++    )
++  );
++
++CREATE INDEX IF NOT EXISTS idx_animais_especie ON animais(especie);
++CREATE INDEX IF NOT EXISTS idx_animais_nome ON animais(nome);
++CREATE INDEX IF NOT EXISTS idx_animais_created_at ON animais(created_at);
++
++-- 2) Tabela "profiles": garantir que existe e adicionar configurações -------
++CREATE TABLE IF NOT EXISTS public.profiles (
++  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
++  farm_name TEXT NOT NULL DEFAULT 'Minha Fazenda',
++  created_at TIMESTAMPTZ DEFAULT now()
++);
++
++ALTER TABLE public.profiles
++  ADD COLUMN IF NOT EXISTS configuracoes JSONB NOT NULL DEFAULT '{}'::jsonb,
++  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
++
++ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
++
++DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
++CREATE POLICY "profiles_select_own"
++  ON public.profiles FOR SELECT
++  USING (auth.uid() = id);
++
++DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
++CREATE POLICY "profiles_insert_own"
++  ON public.profiles FOR INSERT
++  WITH CHECK (auth.uid() = id);
++
++DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
++CREATE POLICY "profiles_update_own"
++  ON public.profiles FOR UPDATE
++  USING (auth.uid() = id)
++  WITH CHECK (auth.uid() = id);
++
++-- Cria o profile automaticamente quando um novo usuário se cadastra
++CREATE OR REPLACE FUNCTION public.handle_new_user()
++RETURNS trigger
++LANGUAGE plpgsql
++SECURITY DEFINER SET search_path = public
++AS $$
++BEGIN
++  INSERT INTO public.profiles (id, farm_name)
++  VALUES (
++    NEW.id,
++    COALESCE(NEW.raw_user_meta_data->>'farm_name', 'Minha Fazenda')
++  )
++  ON CONFLICT (id) DO NOTHING;
++  RETURN NEW;
++END;
++$$;
++
++DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
++CREATE TRIGGER on_auth_user_created
++AFTER INSERT ON auth.users
++FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
++
++-- Mantém updated_at em dia a cada alteração do profile
++CREATE OR REPLACE FUNCTION public.set_profiles_updated_at()
++RETURNS trigger
++LANGUAGE plpgsql
++AS $$
++BEGIN
++  NEW.updated_at = now();
++  RETURN NEW;
++END;
++$$;
++
++DROP TRIGGER IF EXISTS trg_profiles_updated_at ON public.profiles;
++CREATE TRIGGER trg_profiles_updated_at
++BEFORE UPDATE ON public.profiles
++FOR EACH ROW EXECUTE FUNCTION public.set_profiles_updated_at();
+diff --git a/rastreio-api/src/routes/animais.ts b/rastreio-api/src/routes/animais.ts
+index 9f28f87..aaa01eb 100644
+--- a/rastreio-api/src/routes/animais.ts
++++ b/rastreio-api/src/routes/animais.ts
+@@ -4,6 +4,17 @@ import { supabase } from '../lib/supabase';
+ 
+ const router = Router();
+ 
++const ESPECIES_VALIDAS = ['bovino', 'equino', 'ovino', 'caprino', 'suino', 'ave'] as const;
++
++const CATEGORIAS_POR_ESPECIE: Record<string, string[]> = {
++  bovino: ['bezerro', 'novilha', 'vaca', 'touro', 'boi', 'outro'],
++  equino: ['potro', 'potranca', 'egua', 'garanhao', 'castrado', 'outro'],
++  ovino: ['cordeiro', 'borrega', 'ovelha', 'carneiro', 'outro'],
++  caprino: ['cabrito', 'caprina', 'cabra', 'bode', 'outro'],
++  suino: ['leitao', 'marra', 'porca', 'cachaco', 'outro'],
++  ave: ['pintainho', 'frango', 'poedeira', 'matriz', 'reprodutor', 'outro'],
++};
++
+ // GET /api/animais
+ router.get('/', authMiddleware, async (req: AuthRequest, res) => {
+   try {
+@@ -54,8 +65,22 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
+       errors.push('O sexo deve ser M ou F.');
+     }
+ 
+-    if (body?.categoria && !['bezerro', 'novilha', 'vaca', 'touro', 'boi', 'outro'].includes(String(body.categoria))) {
+-      errors.push('A categoria informada é inválida.');
++    const especie = ESPECIES_VALIDAS.includes(body?.especie) ? String(body.especie) : 'bovino';
++    if (body?.especie && !ESPECIES_VALIDAS.includes(body.especie)) {
++      errors.push('A espécie informada é inválida.');
++    }
++
++    // Cavalos (e demais espécies onde o nome é o principal identificador)
++    // precisam de um nome preenchido para permitir a busca por nome.
++    if (especie === 'equino' && (!body?.nome || String(body.nome).trim() === '')) {
++      errors.push('Informe o nome do animal (obrigatório para equinos).');
++    }
++
++    if (body?.categoria) {
++      const categoriasValidas = CATEGORIAS_POR_ESPECIE[especie] || CATEGORIAS_POR_ESPECIE.bovino;
++      if (!categoriasValidas.includes(String(body.categoria))) {
++        errors.push('A categoria informada é inválida para a espécie selecionada.');
++      }
+     }
+ 
+     if (body?.peso_atual !== undefined && body?.peso_atual !== null && Number.isNaN(Number(body.peso_atual))) {
+@@ -70,6 +95,8 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
+       id: body?.id || crypto.randomUUID(),
+       fazenda_id: req.fazendaId,
+       brinco: String(body.brinco).trim(),
++      nome: body?.nome ? String(body.nome).trim() : null,
++      especie,
+       raca: body?.raca ?? null,
+       sexo: body?.sexo ?? null,
+       data_nascimento: body?.data_nascimento ?? null,
+diff --git a/rastreio-web/app/dashboard/animais/[id]/page.tsx b/rastreio-web/app/dashboard/animais/[id]/page.tsx
+index e338d98..e543187 100644
+--- a/rastreio-web/app/dashboard/animais/[id]/page.tsx
++++ b/rastreio-web/app/dashboard/animais/[id]/page.tsx
+@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
+ import { Table } from '@/components/ui/Table';
+ import { supabase } from '@/lib/supabase';
+ import { notificarDashboard } from '@/lib/notificarDashboard';
++import { getEspecieConfig } from '@/lib/especies';
+ import type { Animal, Pesagem, Vacinacao } from '@/types';
+ import { useParams, useRouter } from 'next/navigation';
+ import { useEffect, useState } from 'react';
+@@ -46,37 +47,10 @@ export default function AnimalDetailPage() {
+   const carregarDados = async () => {
+     try {
+       setLoading(true);
+-      // Tentar carregamento local primeiro
+-      const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
+-      if (stored) {
+-        const locais = JSON.parse(stored || '[]');
+-        const encontrado = locais.find((a: any) => a.id === animalId);
+-        if (encontrado) {
+-          // Mapear para tipo Animal usado pela UI
+-          const mapped = {
+-            id: encontrado.id,
+-            fazenda_id: encontrado.fazenda_id || '',
+-            brinco: encontrado.brinco || '',
+-            raca: encontrado.raca || '',
+-            sexo: encontrado.sexo === 'Macho' ? 'M' : encontrado.sexo === 'Fêmea' ? 'F' : (encontrado.sexo || ''),
+-            data_nascimento: encontrado.dataNascimento || encontrado.data_nascimento || '',
+-            peso_atual: encontrado.peso ? (isNaN(Number(encontrado.peso)) ? null : Number(encontrado.peso)) : null,
+-            lote: encontrado.lote || '',
+-            pasto: encontrado.pasto || '',
+-            categoria: (encontrado.categoria || '').toLowerCase(),
+-            foto_url: encontrado.foto_url || null,
+-            ativo: true,
+-            created_at: encontrado.criadoEm || new Date().toISOString(),
+-            updated_at: encontrado.updated_at || new Date().toISOString(),
+-          };
+-          setAnimal(mapped as Animal);
+-          setVacinacoes([]);
+-          setPesagens([]);
+-          return;
+-        }
+-      }
+-
+-      // Fallback para Supabase caso não exista localmente
++      // Sempre lê direto do Supabase. O RLS garante que cada usuário só
++      // enxerga os animais da própria fazenda — não usamos mais localStorage
++      // compartilhado aqui, pois ele misturava dados entre contas diferentes
++      // no mesmo navegador.
+       const { data: animalData, error: animalErr } = await supabase
+         .from('animais')
+         .select('*')
+@@ -171,6 +145,11 @@ export default function AnimalDetailPage() {
+   }
+ 
+   const ultimaVacinacao = vacinacoes[0];
++  const especieConfig = getEspecieConfig(animal.especie);
++  const categoriaLabel =
++    especieConfig.categorias.find((c) => c.value === animal.categoria)?.label ||
++    animal.categoria ||
++    'N/A';
+ 
+   const graficoData = pesagens
+     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+@@ -184,12 +163,12 @@ export default function AnimalDetailPage() {
+     <div className="space-y-6">
+       {/* Header */}
+       <PageHeader
+-        title={`Brinco ${animal.brinco}`}
+-        description={animal.raca || 'Animal cadastrado na fazenda'}
++        title={animal.nome ? `${animal.nome} · ${animal.brinco}` : `Brinco ${animal.brinco}`}
++        description={`${especieConfig.emoji} ${especieConfig.label}${animal.raca ? ` · ${animal.raca}` : ''}`}
+         breadcrumb={[
+           { label: 'Dashboard', href: '/dashboard' },
+           { label: 'Animais', href: '/dashboard/animais' },
+-          { label: animal.brinco },
++          { label: animal.nome || animal.brinco },
+         ]}
+       />
+ 
+@@ -200,6 +179,18 @@ export default function AnimalDetailPage() {
+             Informações Básicas
+           </h3>
+           <div className="space-y-3">
++            {animal.nome && (
++              <div>
++                <p className="text-xs text-text-muted">Nome</p>
++                <p className="font-semibold text-text-primary">{animal.nome}</p>
++              </div>
++            )}
++            <div>
++              <p className="text-xs text-text-muted">Espécie</p>
++              <p className="font-semibold text-text-primary">
++                {especieConfig.emoji} {especieConfig.label}
++              </p>
++            </div>
+             <div>
+               <p className="text-xs text-text-muted">Raça</p>
+               <p className="font-semibold text-text-primary">
+@@ -215,7 +206,7 @@ export default function AnimalDetailPage() {
+             <div>
+               <p className="text-xs text-text-muted">Categoria</p>
+               <Badge
+-                label={animal.categoria || 'N/A'}
++                label={categoriaLabel}
+                 variant="info"
+               />
+             </div>
+diff --git a/rastreio-web/app/dashboard/animais/page.tsx b/rastreio-web/app/dashboard/animais/page.tsx
+index 7be2138..38b5d35 100644
+--- a/rastreio-web/app/dashboard/animais/page.tsx
++++ b/rastreio-web/app/dashboard/animais/page.tsx
+@@ -1,6 +1,6 @@
+ 'use client';
+ 
+-import { useState, useEffect } from 'react';
++import { useState, useEffect, useMemo } from 'react';
+ import { supabase } from '@/lib/supabase';
+ import { Button } from '@/components/ui/Button';
+ import { Card } from '@/components/ui/Card';
+@@ -14,29 +14,38 @@ import { Modal } from '@/components/ui/Modal';
+ import { notificarDashboard } from '@/lib/notificarDashboard';
+ import { VaccinationScheduler } from '@/lib/vaccination-scheduler';
+ import { saveAnimalToSupabase } from '@/lib/fazenda';
++import { ESPECIE_OPTIONS, getEspecieConfig, categoriaPadrao, type Especie } from '@/lib/especies';
+ import { useToast } from '@/hooks/useToast';
+ import { Toast } from '@/components/ui/Toast';
+-import type { Animal, Categoria, Sexo } from '@/types';
++import type { Animal, Sexo } from '@/types';
++
++const formInicial = {
++  brinco: '',
++  nome: '',
++  raca: '',
++  sexo: 'M' as Sexo,
++  data_nascimento: '',
++  categoria: categoriaPadrao('bovino'),
++  especie: 'bovino' as Especie,
++  lote: '',
++  pasto: '',
++  peso_atual: '',
++};
+ 
+ export default function AnimaisPage() {
+   const [animais, setAnimais] = useState<Animal[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [search, setSearch] = useState('');
++  const [filtroEspecie, setFiltroEspecie] = useState<string>('');
+   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
+   const [showModal, setShowModal] = useState(false);
+   const [saving, setSaving] = useState(false);
+   const { toasts, addToast, removeToast } = useToast();
+-  const [formData, setFormData] = useState({
+-    brinco: '',
+-    raca: '',
+-    sexo: 'M' as Sexo,
+-    data_nascimento: '',
+-    categoria: 'bezerro' as Categoria,
+-    especie: 'bovino' as 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave',
+-    lote: '',
+-    pasto: '',
+-    peso_atual: '',
+-  });
++  const [formData, setFormData] = useState(formInicial);
++
++  // Painel dinâmico: tudo o que muda de acordo com a espécie escolhida vem
++  // deste objeto (rótulos, categorias disponíveis, se o nome é obrigatório).
++  const especieConfig = getEspecieConfig(formData.especie);
+ 
+   useEffect(() => {
+     carregarAnimais();
+@@ -46,157 +55,94 @@ export default function AnimaisPage() {
+     try {
+       setLoading(true);
+ 
++      // Cada usuário só enxerga os animais da própria fazenda: o filtro é
++      // garantido pelo RLS do Supabase (fazenda_id ligado ao owner_id do
++      // usuário logado), então basta consultar a tabela normalmente.
+       const { data, error } = await supabase
+         .from('animais')
+         .select('*')
++        .eq('ativo', true)
+         .order('created_at', { ascending: false });
+ 
+       if (error) throw error;
+ 
+-      if (data && data.length > 0) {
+-        setAnimais(data as Animal[]);
+-        return;
+-      }
+-
+-      const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
+-      if (stored) {
+-        const locais = JSON.parse(stored || '[]');
+-        const mapped = locais.map((a: any) => ({
+-          id: a.id,
+-          fazenda_id: a.fazenda_id || '',
+-          brinco: a.brinco || '',
+-          raca: a.raca || '',
+-          sexo: a.sexo === 'Macho' ? 'M' : a.sexo === 'Fêmea' ? 'F' : (a.sexo || ''),
+-          data_nascimento: a.dataNascimento || a.data_nascimento || '',
+-          peso_atual: a.peso ? (isNaN(Number(a.peso)) ? undefined : Number(a.peso)) : (a.peso_atual || undefined),
+-          lote: a.lote || '',
+-          pasto: a.pasto || '',
+-          categoria: (a.categoria || '').toLowerCase(),
+-          foto_url: a.foto_url || null,
+-          ativo: typeof a.ativo === 'boolean' ? a.ativo : true,
+-          created_at: a.criadoEm || a.created_at || new Date().toISOString(),
+-          updated_at: a.updated_at || new Date().toISOString(),
+-        }));
+-        setAnimais(mapped || []);
+-      }
++      setAnimais((data as Animal[]) || []);
+     } catch (error) {
+       console.error('Erro ao carregar animais:', error);
++      addToast('Não foi possível carregar os animais. Tente novamente.', 'error', 5000);
+     } finally {
+       setLoading(false);
+     }
+   };
+ 
++  const handleEspecieChange = (novaEspecie: Especie) => {
++    setFormData((prev) => ({
++      ...prev,
++      especie: novaEspecie,
++      // A categoria é sempre relativa à espécie, então trocamos para a
++      // primeira opção válida da nova espécie ao alternar o seletor.
++      categoria: categoriaPadrao(novaEspecie),
++    }));
++  };
++
+   const handleCriarAnimal = async () => {
+     if (!formData.brinco.trim()) {
+-      addToast('Informe o brinco do animal antes de salvar.', 'error', 5000);
++      addToast('Informe o brinco (identificação) do animal antes de salvar.', 'error', 5000);
+       return;
+     }
+ 
+-    const novoAnimal = {
+-      id: Date.now().toString(),
+-      brinco: formData.brinco.trim(),
+-      raca: formData.raca.trim(),
+-      sexo: formData.sexo === 'M' ? 'Macho' : formData.sexo === 'F' ? 'Fêmea' : (formData.sexo || ''),
+-      dataNascimento: formData.data_nascimento || '',
+-      categoria:
+-        formData.categoria === 'bezerro'
+-          ? 'Bezerro'
+-          : formData.categoria === 'novilha'
+-          ? 'Novilha'
+-          : formData.categoria === 'vaca'
+-          ? 'Vaca'
+-          : formData.categoria === 'touro'
+-          ? 'Touro'
+-          : formData.categoria === 'boi'
+-          ? 'Boi'
+-          : formData.categoria || '',
+-      especie: formData.especie,
+-      peso: formData.peso_atual || '',
+-      lote: formData.lote || '',
+-      pasto: formData.pasto || '',
+-      criadoEm: new Date().toISOString(),
+-    };
++    if (especieConfig.nomeObrigatorio && !formData.nome.trim()) {
++      addToast(`Informe o nome do ${especieConfig.label.toLowerCase()} antes de salvar.`, 'error', 5000);
++      return;
++    }
+ 
+     setSaving(true);
+ 
+     try {
+-      const pesoNumerico = novoAnimal.peso ? Number(novoAnimal.peso) : undefined;
++      const pesoNumerico = formData.peso_atual ? Number(formData.peso_atual) : undefined;
+       const savedAnimal = await saveAnimalToSupabase({
+-        id: novoAnimal.id,
+-        brinco: novoAnimal.brinco,
+-        raca: novoAnimal.raca,
++        brinco: formData.brinco.trim(),
++        nome: formData.nome.trim() || undefined,
++        especie: formData.especie,
++        raca: formData.raca.trim(),
+         sexo: formData.sexo,
+-        data_nascimento: novoAnimal.dataNascimento,
++        data_nascimento: formData.data_nascimento,
+         categoria: formData.categoria,
+         peso_atual: Number.isFinite(pesoNumerico) ? pesoNumerico : undefined,
+-        lote: novoAnimal.lote,
+-        pasto: novoAnimal.pasto,
++        lote: formData.lote,
++        pasto: formData.pasto,
+       });
+ 
+-      if (typeof window !== 'undefined') {
+-        const existentes = JSON.parse(localStorage.getItem('animais') || '[]');
+-        localStorage.setItem('animais', JSON.stringify([...existentes, novoAnimal]));
+-
+-        const agendamentos = VaccinationScheduler.generateSchedule({
+-          id: novoAnimal.id,
+-          brinco: novoAnimal.brinco,
+-          sexo: formData.sexo,
+-          dataNascimento: novoAnimal.dataNascimento,
+-          categoria: formData.categoria,
+-          especie: formData.especie,
+-        });
++      // Gera o calendário de vacinação recomendado para a espécie/categoria
++      const agendamentos = VaccinationScheduler.generateSchedule({
++        id: savedAnimal.id,
++        brinco: savedAnimal.brinco,
++        sexo: formData.sexo,
++        dataNascimento: formData.data_nascimento,
++        categoria: formData.categoria,
++        especie: formData.especie,
++      });
+ 
+-        const vacinacoesExistentes = JSON.parse(localStorage.getItem('vacinacoes') || '[]');
+-        const vacinacoesAtualizadas = [
+-          ...vacinacoesExistentes,
+-          ...agendamentos.map((item) => ({
+-            id: item.id,
+-            animalId: item.animalId,
+-            animalBrinco: item.animalBrinco,
++      if (agendamentos.length > 0) {
++        const { error: vacError } = await supabase.from('vacinacoes').insert(
++          agendamentos.map((item) => ({
++            animal_id: savedAnimal.id,
+             vacina: item.nome,
+-            lote: '',
+-            dataAplicacao: item.status === 'aplicada' ? item.dataPrevista : '',
+-            dataVencimento: item.dataPrevista,
+-            responsavel: 'Automático',
+-            observacoes: item.observacao || item.dose,
+-            status: item.status === 'aplicada' ? 'aplicada' : 'pendente',
+-            criadoEm: new Date().toISOString(),
++            data: item.status === 'aplicada' ? item.dataPrevista : item.dataPrevista,
++            dose: item.dose || null,
++            veterinario: 'Automático',
++            proxima_dose: item.status === 'aplicada' ? null : item.dataPrevista,
+           })),
+-        ];
+-        localStorage.setItem('vacinacoes', JSON.stringify(vacinacoesAtualizadas));
++        );
++        if (vacError) {
++          console.warn('Não foi possível gravar o calendário de vacinação automático:', vacError);
++        }
+       }
+ 
+-      const mappedAnimal = {
+-        id: savedAnimal.id,
+-        fazenda_id: savedAnimal.fazenda_id || '',
+-        brinco: savedAnimal.brinco || '',
+-        raca: savedAnimal.raca || '',
+-        sexo: savedAnimal.sexo === 'M' || savedAnimal.sexo === 'F' ? savedAnimal.sexo : '',
+-        data_nascimento: savedAnimal.data_nascimento || '',
+-        peso_atual: savedAnimal.peso_atual ? Number(savedAnimal.peso_atual) : undefined,
+-        lote: savedAnimal.lote || '',
+-        pasto: savedAnimal.pasto || '',
+-        categoria: (savedAnimal.categoria || '').toLowerCase(),
+-        foto_url: savedAnimal.foto_url || null,
+-        ativo: savedAnimal.ativo ?? true,
+-        created_at: savedAnimal.created_at || new Date().toISOString(),
+-        updated_at: savedAnimal.updated_at || new Date().toISOString(),
+-      } as Animal;
+-
+-      setAnimais((prev) => [mappedAnimal, ...prev]);
++      setAnimais((prev) => [savedAnimal, ...prev]);
+       setShowModal(false);
+-      setFormData({
+-        brinco: '',
+-        raca: '',
+-        sexo: 'M',
+-        data_nascimento: '',
+-        categoria: 'bezerro',
+-        especie: 'bovino',
+-        lote: '',
+-        pasto: '',
+-        peso_atual: '',
+-      });
+-      addToast(`Animal ${novoAnimal.brinco} cadastrado com sucesso.`, 'success', 4000);
++      setFormData(formInicial);
++      addToast(`${especieConfig.label} ${savedAnimal.brinco} cadastrado com sucesso.`, 'success', 4000);
+       notificarDashboard();
+     } catch (e) {
+       const message = e instanceof Error ? e.message : 'Não foi possível salvar o animal.';
+@@ -207,13 +153,29 @@ export default function AnimaisPage() {
+     }
+   };
+ 
++  // Categorias exibidas no filtro dependem da espécie selecionada no filtro
++  const categoriasFiltro = useMemo(() => {
++    if (!filtroEspecie) {
++      // sem espécie selecionada: mostra a união de todas as categorias
++      const todas = new Map<string, string>();
++      ESPECIE_OPTIONS.forEach(({ value }) => {
++        getEspecieConfig(value).categorias.forEach((c) => todas.set(c.value, c.label));
++      });
++      return Array.from(todas, ([value, label]) => ({ value, label }));
++    }
++    return getEspecieConfig(filtroEspecie).categorias;
++  }, [filtroEspecie]);
++
+   const animaisFiltrados = animais.filter((animal) => {
++    const termo = search.toLowerCase().trim();
+     const matchSearch =
+-      animal.brinco.toLowerCase().includes(search.toLowerCase()) ||
+-      animal.raca?.toLowerCase().includes(search.toLowerCase());
+-    const matchCategoria =
+-      filtroCategoria === '' || animal.categoria === filtroCategoria;
+-    return matchSearch && matchCategoria;
++      !termo ||
++      animal.brinco?.toLowerCase().includes(termo) ||
++      animal.nome?.toLowerCase().includes(termo) ||
++      animal.raca?.toLowerCase().includes(termo);
++    const matchEspecie = filtroEspecie === '' || animal.especie === filtroEspecie;
++    const matchCategoria = filtroCategoria === '' || animal.categoria === filtroCategoria;
++    return matchSearch && matchEspecie && matchCategoria;
+   });
+ 
+   if (loading) {
+@@ -225,7 +187,7 @@ export default function AnimaisPage() {
+       {/* Header */}
+       <PageHeader
+         title="Animais"
+-        description="Gerencie todos os animais da fazenda"
++        description="Gerencie todos os animais da fazenda, de qualquer espécie"
+         action={
+           <Button variant="primary" onClick={() => setShowModal(true)}>
+             + Novo Animal
+@@ -235,13 +197,33 @@ export default function AnimaisPage() {
+ 
+       {/* Filtros */}
+       <Card className="p-6">
+-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
++        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+           <Input
+-            label="Buscar por brinco ou raça"
+-            placeholder="Ex: 001, Nelore"
++            label="Buscar por nome, brinco ou raça"
++            placeholder="Ex: Trovão, 001, Nelore"
+             value={search}
+             onChange={(e) => setSearch(e.target.value)}
+           />
++          <div>
++            <label className="block text-sm font-medium text-text-secondary mb-2">
++              Espécie
++            </label>
++            <select
++              value={filtroEspecie}
++              onChange={(e) => {
++                setFiltroEspecie(e.target.value);
++                setFiltroCategoria('');
++              }}
++              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
++            >
++              <option value="">Todas</option>
++              {ESPECIE_OPTIONS.map((opt) => (
++                <option key={opt.value} value={opt.value}>
++                  {opt.emoji} {opt.label}
++                </option>
++              ))}
++            </select>
++          </div>
+           <div>
+             <label className="block text-sm font-medium text-text-secondary mb-2">
+               Categoria
+@@ -252,11 +234,11 @@ export default function AnimaisPage() {
+               className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
+             >
+               <option value="">Todas</option>
+-              <option value="bezerro">Bezerro</option>
+-              <option value="novilha">Novilha</option>
+-              <option value="vaca">Vaca</option>
+-              <option value="touro">Touro</option>
+-              <option value="boi">Boi</option>
++              {categoriasFiltro.map((c) => (
++                <option key={c.value} value={c.value}>
++                  {c.label}
++                </option>
++              ))}
+             </select>
+           </div>
+         </div>
+@@ -266,7 +248,7 @@ export default function AnimaisPage() {
+       {animaisFiltrados.length === 0 ? (
+         <EmptyState
+           icon="🐄"
+-          title={search || filtroCategoria ? 'Nenhum animal encontrado' : 'Nenhum animal cadastrado'}
++          title={search || filtroCategoria || filtroEspecie ? 'Nenhum animal encontrado' : 'Nenhum animal cadastrado'}
+           description="Comece cadastrando seu primeiro animal"
+           action={{
+             label: '+ Novo Animal',
+@@ -279,11 +261,30 @@ export default function AnimaisPage() {
+             data={animaisFiltrados}
+             keyExtractor={(animal) => animal.id}
+             columns={[
++              {
++                key: 'especie',
++                label: 'Espécie',
++                render: (value) => {
++                  const cfg = getEspecieConfig(value as string);
++                  return (
++                    <span className="text-sm text-text-secondary">
++                      {cfg.emoji} {cfg.label}
++                    </span>
++                  );
++                },
++              },
++              {
++                key: 'nome',
++                label: 'Nome',
++                render: (value) => (
++                  <span className="font-semibold text-text-primary">{value || '-'}</span>
++                ),
++              },
+               {
+                 key: 'brinco',
+-                label: 'Brinco',
++                label: 'Brinco / ID',
+                 render: (value) => (
+-                  <span className="font-semibold text-text-primary">{value}</span>
++                  <span className="text-text-secondary">{value}</span>
+                 ),
+               },
+               {
+@@ -294,18 +295,11 @@ export default function AnimaisPage() {
+               {
+                 key: 'categoria',
+                 label: 'Categoria',
+-                render: (value) => (
+-                  <Badge
+-                    label={value || 'N/A'}
+-                    variant={
+-                      value === 'vaca'
+-                        ? 'success'
+-                        : value === 'touro'
+-                          ? 'warning'
+-                          : 'info'
+-                    }
+-                  />
+-                ),
++                render: (value, row) => {
++                  const cfg = getEspecieConfig(row.especie);
++                  const label = cfg.categorias.find((c) => c.value === value)?.label || value || 'N/A';
++                  return <Badge label={label} variant="info" />;
++                },
+               },
+               {
+                 key: 'peso_atual',
+@@ -339,7 +333,7 @@ export default function AnimaisPage() {
+       <Modal
+         isOpen={showModal}
+         onClose={() => setShowModal(false)}
+-        title="Novo Animal"
++        title={`Novo ${especieConfig.label}`}
+         footer={
+           <>
+             <Button variant="ghost" onClick={() => setShowModal(false)}>
+@@ -352,54 +346,61 @@ export default function AnimaisPage() {
+         }
+       >
+         <div className="space-y-4">
+-          <Input
+-            label="Brinco"
+-            placeholder="Ex: 001"
+-            value={formData.brinco}
+-            onChange={(e) =>
+-              setFormData({ ...formData, brinco: e.target.value })
+-            }
+-          />
++          <div>
++            <label className="block text-sm font-medium text-text-secondary mb-2">
++              Espécie
++            </label>
++            <select
++              value={formData.especie}
++              onChange={(e) => handleEspecieChange(e.target.value as Especie)}
++              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
++            >
++              {ESPECIE_OPTIONS.map((opt) => (
++                <option key={opt.value} value={opt.value}>
++                  {opt.emoji} {opt.label}
++                </option>
++              ))}
++            </select>
++            <p className="text-xs text-text-muted mt-1">
++              O restante do formulário se ajusta automaticamente para {especieConfig.labelPlural.toLowerCase()}.
++            </p>
++          </div>
++
++          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
++            <Input
++              label={especieConfig.identificadorLabel}
++              placeholder={especieConfig.identificadorPlaceholder}
++              value={formData.brinco}
++              onChange={(e) => setFormData({ ...formData, brinco: e.target.value })}
++            />
++            <Input
++              label={`Nome${especieConfig.nomeObrigatorio ? '' : ' (opcional)'}`}
++              placeholder={especieConfig.nomePlaceholder}
++              value={formData.nome}
++              onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
++            />
++          </div>
++          {especieConfig.nomeObrigatorio && (
++            <p className="text-xs text-text-muted -mt-2">
++              Com o nome preenchido, você poderá localizar este {especieConfig.label.toLowerCase()} diretamente pelo nome na busca.
++            </p>
++          )}
++
+           <Input
+             label="Raça"
+-            placeholder="Ex: Nelore, Angus"
++            placeholder="Ex: Nelore, Angus, Mangalarga"
+             value={formData.raca}
+-            onChange={(e) =>
+-              setFormData({ ...formData, raca: e.target.value })
+-            }
++            onChange={(e) => setFormData({ ...formData, raca: e.target.value })}
+           />
++
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+-            <div>
+-              <label className="block text-sm font-medium text-text-secondary mb-2">
+-                Espécie
+-              </label>
+-              <select
+-                value={formData.especie}
+-                onChange={(e) =>
+-                  setFormData({ ...formData, especie: e.target.value as typeof formData.especie })
+-                }
+-                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
+-              >
+-                <option value="bovino">Bovino</option>
+-                <option value="equino">Equino</option>
+-                <option value="ovino">Ovino</option>
+-                <option value="caprino">Caprino</option>
+-                <option value="suino">Suíno</option>
+-                <option value="ave">Ave</option>
+-              </select>
+-            </div>
+             <div>
+               <label className="block text-sm font-medium text-text-secondary mb-2">
+                 Sexo
+               </label>
+               <select
+                 value={formData.sexo}
+-                onChange={(e) =>
+-                  setFormData({
+-                    ...formData,
+-                    sexo: e.target.value as Sexo,
+-                  })
+-                }
++                onChange={(e) => setFormData({ ...formData, sexo: e.target.value as Sexo })}
+                 className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
+               >
+                 <option value="M">Macho</option>
+@@ -410,14 +411,10 @@ export default function AnimaisPage() {
+               label="Data de Nascimento"
+               type="date"
+               value={formData.data_nascimento}
+-              onChange={(e) =>
+-                setFormData({
+-                  ...formData,
+-                  data_nascimento: e.target.value,
+-                })
+-              }
++              onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
+             />
+           </div>
++
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+             <div>
+               <label className="block text-sm font-medium text-text-secondary mb-2">
+@@ -425,19 +422,14 @@ export default function AnimaisPage() {
+               </label>
+               <select
+                 value={formData.categoria}
+-                onChange={(e) =>
+-                  setFormData({
+-                    ...formData,
+-                    categoria: e.target.value as Categoria,
+-                  })
+-                }
++                onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
+                 className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
+               >
+-                <option value="bezerro">Bezerro</option>
+-                <option value="novilha">Novilha</option>
+-                <option value="vaca">Vaca</option>
+-                <option value="touro">Touro</option>
+-                <option value="boi">Boi</option>
++                {especieConfig.categorias.map((c) => (
++                  <option key={c.value} value={c.value}>
++                    {c.label}
++                  </option>
++                ))}
+               </select>
+             </div>
+             <Input
+@@ -445,27 +437,22 @@ export default function AnimaisPage() {
+               type="number"
+               placeholder="Ex: 250"
+               value={formData.peso_atual}
+-              onChange={(e) =>
+-                setFormData({ ...formData, peso_atual: e.target.value })
+-              }
++              onChange={(e) => setFormData({ ...formData, peso_atual: e.target.value })}
+             />
+           </div>
++
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+             <Input
+               label="Lote"
+               placeholder="Ex: Lote A"
+               value={formData.lote}
+-              onChange={(e) =>
+-                setFormData({ ...formData, lote: e.target.value })
+-              }
++              onChange={(e) => setFormData({ ...formData, lote: e.target.value })}
+             />
+             <Input
+               label="Pasto"
+               placeholder="Ex: Pasto 1"
+               value={formData.pasto}
+-              onChange={(e) =>
+-                setFormData({ ...formData, pasto: e.target.value })
+-              }
++              onChange={(e) => setFormData({ ...formData, pasto: e.target.value })}
+             />
+           </div>
+         </div>
+diff --git a/rastreio-web/app/dashboard/configuracoes/page.tsx b/rastreio-web/app/dashboard/configuracoes/page.tsx
+index aa5f778..bd0918b 100644
+--- a/rastreio-web/app/dashboard/configuracoes/page.tsx
++++ b/rastreio-web/app/dashboard/configuracoes/page.tsx
+@@ -1,6 +1,6 @@
+ 'use client';
+ 
+-import { useState, useEffect } from 'react';
++import { useState, useEffect, useRef } from 'react';
+ import { Card } from '@/components/ui/Card';
+ import { Button } from '@/components/ui/Button';
+ import { Input } from '@/components/ui/Input';
+@@ -9,8 +9,7 @@ import { Toast, type ToastMessage } from '@/components/ui/Toast';
+ import { useAuth } from '@/contexts/AuthContext';
+ import { supabase } from '@/lib/supabase';
+ 
+-interface Config {
+-  nomeFazenda: string;
++interface Preferencias {
+   responsavel: string;
+   cnpj: string;
+   cidadeEstado: string;
+@@ -20,8 +19,7 @@ interface Config {
+   emailAlerta: string;
+ }
+ 
+-const configPadrao: Config = {
+-  nomeFazenda: 'Fazenda São João',
++const preferenciasPadrao: Preferencias = {
+   responsavel: '',
+   cnpj: '',
+   cidadeEstado: '',
+@@ -32,25 +30,23 @@ const configPadrao: Config = {
+ };
+ 
+ export default function ConfiguracoesPage() {
+-  const [config, setConfig] = useState<Config>(configPadrao);
++  const { user, profile, loading: authLoading, saveConfiguracoes } = useAuth();
++  const [nomeFazenda, setNomeFazenda] = useState('');
++  const [preferencias, setPreferencias] = useState<Preferencias>(preferenciasPadrao);
+   const [salvo, setSalvo] = useState(false);
+-  const [loading, setLoading] = useState(true);
+   const [saving, setSaving] = useState(false);
++  const [exporting, setExporting] = useState(false);
+   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+-  const { user, profile, refreshProfile, setFarmName } = useAuth();
++  const fileInputRef = useRef<HTMLInputElement | null>(null);
+ 
++  // Tudo o que o usuário vê aqui vem do profile carregado do Supabase
++  // (tabela "profiles", isolado por usuário via RLS). Assim, ao fazer login
++  // em qualquer dispositivo, as próprias configurações reaparecem.
+   useEffect(() => {
+-    const saved = localStorage.getItem('configuracoes');
+-    if (saved) {
+-      const parsed = JSON.parse(saved) as Config;
+-      setConfig(parsed);
+-    }
+-
+-    if (profile?.farm_name) {
+-      setConfig((prev) => ({ ...prev, nomeFazenda: profile.farm_name || prev.nomeFazenda }));
+-    }
++    if (!profile) return;
+ 
+-    setLoading(false);
++    setNomeFazenda(profile.farm_name || 'Minha Fazenda');
++    setPreferencias({ ...preferenciasPadrao, ...(profile.configuracoes || {}) });
+   }, [profile]);
+ 
+   const addToast = (message: string, type: ToastMessage['type']) => {
+@@ -58,30 +54,23 @@ export default function ConfiguracoesPage() {
+     setToasts((prev) => [...prev, { id, message, type }]);
+   };
+ 
+-  const handleSalvar = async () => {
+-    const farmName = (config.nomeFazenda || 'Minha Fazenda').trim() || 'Minha Fazenda';
+-    setSaving(true);
++  const setPref = (campo: keyof Preferencias, valor: any) =>
++    setPreferencias((prev) => ({ ...prev, [campo]: valor }));
+ 
+-    try {
+-      localStorage.setItem('configuracoes', JSON.stringify({ ...config, nomeFazenda: farmName }));
+-
+-      if (user?.id) {
+-        const { error } = await supabase
+-          .from('profiles')
+-          .update({ farm_name: farmName })
+-          .eq('id', user.id);
+-
+-        if (error) {
+-          console.warn('Falha no update do profile, tentando criar/atualizar via upsert:', error);
+-        }
++  const handleSalvar = async () => {
++    const farmName = (nomeFazenda || 'Minha Fazenda').trim() || 'Minha Fazenda';
+ 
+-        await setFarmName(farmName);
+-        await refreshProfile();
+-      }
++    if (!user?.id) {
++      addToast('Sessão expirada. Faça login novamente para salvar.', 'error');
++      return;
++    }
+ 
+-      setConfig((prev) => ({ ...prev, nomeFazenda: farmName }));
++    setSaving(true);
++    try {
++      await saveConfiguracoes(farmName, preferencias);
++      setNomeFazenda(farmName);
+       setSalvo(true);
+-      addToast('Nome da fazenda atualizado com sucesso.', 'success');
++      addToast('Configurações salvas com sucesso.', 'success');
+       setTimeout(() => setSalvo(false), 2500);
+     } catch (error) {
+       const message = error instanceof Error ? error.message : 'Erro ao salvar as configurações.';
+@@ -91,89 +80,84 @@ export default function ConfiguracoesPage() {
+     }
+   };
+ 
+-  const handleExportarJSON = () => {
+-    const dados = {
+-      animais: JSON.parse(localStorage.getItem('animais') || '[]'),
+-      vacinacoes: JSON.parse(localStorage.getItem('vacinacoes') || '[]'),
+-      pesagens: JSON.parse(localStorage.getItem('pesagens') || '[]'),
+-      configuracoes: config,
+-      exportadoEm: new Date().toISOString(),
+-    };
+-    const blob = new Blob([JSON.stringify(dados, null, 2)], {
+-      type: 'application/json',
+-    });
+-    const url = URL.createObjectURL(blob);
+-    const a = document.createElement('a');
+-    a.href = url;
+-    a.download = `rastreio-backup-${new Date().toISOString().split('T')[0]}.json`;
+-    a.click();
+-    URL.revokeObjectURL(url);
++  const handleExportarJSON = async () => {
++    if (!user?.id) return;
++    setExporting(true);
++    try {
++      const [{ data: animais }, { data: vacinacoes }, { data: pesagens }] = await Promise.all([
++        supabase.from('animais').select('*'),
++        supabase.from('vacinacoes').select('*'),
++        supabase.from('pesagens').select('*'),
++      ]);
++
++      const dados = {
++        fazenda: nomeFazenda,
++        preferencias,
++        animais: animais || [],
++        vacinacoes: vacinacoes || [],
++        pesagens: pesagens || [],
++        exportadoEm: new Date().toISOString(),
++      };
++
++      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
++      const url = URL.createObjectURL(blob);
++      const a = document.createElement('a');
++      a.href = url;
++      a.download = `rastreio-backup-${new Date().toISOString().split('T')[0]}.json`;
++      a.click();
++      URL.revokeObjectURL(url);
++      addToast('Backup exportado com os dados atuais da sua conta.', 'success');
++    } catch (error) {
++      addToast('Não foi possível exportar os dados agora.', 'error');
++    } finally {
++      setExporting(false);
++    }
++  };
++
++  const handleImportarPreferencias = () => {
++    fileInputRef.current?.click();
+   };
+ 
+-  const handleImportarJSON = () => {
+-    const input = document.createElement('input');
+-    input.type = 'file';
+-    input.accept = '.json';
+-    input.onchange = (e: any) => {
+-      const file = e.target.files[0];
+-      if (!file) return;
+-      const reader = new FileReader();
+-      reader.onload = (ev) => {
+-        try {
+-          const dados = JSON.parse(ev.target?.result as string);
+-          if (dados.animais)
+-            localStorage.setItem('animais', JSON.stringify(dados.animais));
+-          if (dados.vacinacoes)
+-            localStorage.setItem('vacinacoes', JSON.stringify(dados.vacinacoes));
+-          if (dados.pesagens)
+-            localStorage.setItem('pesagens', JSON.stringify(dados.pesagens));
+-          if (dados.configuracoes) {
+-            localStorage.setItem(
+-              'configuracoes',
+-              JSON.stringify(dados.configuracoes)
+-            );
+-            setConfig(dados.configuracoes);
+-          }
+-          window.dispatchEvent(new Event('storage'));
+-          setSalvo(true);
+-          setTimeout(() => setSalvo(false), 2500);
+-        } catch {
+-          console.error('Erro ao importar arquivo');
++  const handleArquivoSelecionado = (e: React.ChangeEvent<HTMLInputElement>) => {
++    const file = e.target.files?.[0];
++    if (!file) return;
++
++    const reader = new FileReader();
++    reader.onload = async (ev) => {
++      try {
++        const dados = JSON.parse(ev.target?.result as string);
++        // Por segurança, este importador restaura apenas as preferências
++        // (nome da fazenda, alertas, etc.). Animais e vacinações já vivem
++        // no Supabase e são cadastrados pela tela de Animais.
++        if (dados.preferencias) {
++          setPreferencias({ ...preferenciasPadrao, ...dados.preferencias });
+         }
+-      };
+-      reader.readAsText(file);
++        if (dados.fazenda) {
++          setNomeFazenda(dados.fazenda);
++        }
++        addToast('Preferências carregadas do arquivo. Clique em Salvar para confirmar.', 'success');
++      } catch {
++        addToast('Não foi possível ler o arquivo selecionado.', 'error');
++      } finally {
++        if (fileInputRef.current) fileInputRef.current.value = '';
++      }
+     };
+-    input.click();
++    reader.readAsText(file);
+   };
+ 
+-  const handleLimparDados = () => {
+-    if (
+-      typeof window !== 'undefined' &&
+-      confirm(
+-        'Tem certeza que deseja limpar TODOS os dados? Esta ação não pode ser desfeita.'
+-      )
+-    ) {
+-      localStorage.removeItem('animais');
+-      localStorage.removeItem('vacinacoes');
+-      localStorage.removeItem('pesagens');
+-      localStorage.removeItem('alertas_lidas');
+-      localStorage.removeItem('dashboard_snapshot');
+-      window.dispatchEvent(new Event('storage'));
+-      setSalvo(true);
+-      setTimeout(() => setSalvo(false), 2500);
++  const handleRestaurarPadrao = () => {
++    if (typeof window === 'undefined') return;
++    if (!confirm('Restaurar as preferências desta tela para os valores padrão? O nome da fazenda não será alterado.')) {
++      return;
+     }
++    setPreferencias(preferenciasPadrao);
++    addToast('Preferências redefinidas. Clique em Salvar para confirmar.', 'success');
+   };
+ 
+-  const set = (campo: keyof Config, valor: any) =>
+-    setConfig((prev) => ({ ...prev, [campo]: valor }));
+-
+-  if (loading) {
++  if (authLoading) {
+     return (
+       <div className="space-y-6">
+-        <PageHeader
+-          title="Configurações"
+-          description="Carregando..."
+-        />
++        <PageHeader title="Configurações" description="Carregando..." />
+       </div>
+     );
+   }
+@@ -183,7 +167,7 @@ export default function ConfiguracoesPage() {
+       {/* Header */}
+       <PageHeader
+         title="Configurações"
+-        description="Preferências e configurações do sistema"
++        description="Preferências da sua conta — salvas no Supabase e disponíveis em qualquer login"
+       />
+ 
+       {/* Seção Fazenda */}
+@@ -198,8 +182,8 @@ export default function ConfiguracoesPage() {
+             </label>
+             <Input
+               type="text"
+-              value={config.nomeFazenda}
+-              onChange={(e) => set('nomeFazenda', e.target.value)}
++              value={nomeFazenda}
++              onChange={(e) => setNomeFazenda(e.target.value)}
+               placeholder="Ex: Fazenda São João"
+             />
+           </div>
+@@ -209,8 +193,8 @@ export default function ConfiguracoesPage() {
+             </label>
+             <Input
+               type="text"
+-              value={config.responsavel}
+-              onChange={(e) => set('responsavel', e.target.value)}
++              value={preferencias.responsavel}
++              onChange={(e) => setPref('responsavel', e.target.value)}
+               placeholder="Nome do responsável"
+             />
+           </div>
+@@ -221,8 +205,8 @@ export default function ConfiguracoesPage() {
+               </label>
+               <Input
+                 type="text"
+-                value={config.cnpj}
+-                onChange={(e) => set('cnpj', e.target.value)}
++                value={preferencias.cnpj}
++                onChange={(e) => setPref('cnpj', e.target.value)}
+                 placeholder="00.000.000/0000-00"
+               />
+             </div>
+@@ -232,8 +216,8 @@ export default function ConfiguracoesPage() {
+               </label>
+               <Input
+                 type="text"
+-                value={config.cidadeEstado}
+-                onChange={(e) => set('cidadeEstado', e.target.value)}
++                value={preferencias.cidadeEstado}
++                onChange={(e) => setPref('cidadeEstado', e.target.value)}
+                 placeholder="São Paulo, SP"
+               />
+             </div>
+@@ -255,10 +239,8 @@ export default function ConfiguracoesPage() {
+               <Input
+                 type="number"
+                 min="1"
+-                value={config.diasAlertaVacinacao}
+-                onChange={(e) =>
+-                  set('diasAlertaVacinacao', Number(e.target.value))
+-                }
++                value={preferencias.diasAlertaVacinacao}
++                onChange={(e) => setPref('diasAlertaVacinacao', Number(e.target.value))}
+                 placeholder="7"
+               />
+               <p className="text-xs text-text-muted mt-1">
+@@ -272,8 +254,8 @@ export default function ConfiguracoesPage() {
+               <Input
+                 type="number"
+                 min="1"
+-                value={config.diasAlertaPesagem}
+-                onChange={(e) => set('diasAlertaPesagem', Number(e.target.value))}
++                value={preferencias.diasAlertaPesagem}
++                onChange={(e) => setPref('diasAlertaPesagem', Number(e.target.value))}
+                 placeholder="30"
+               />
+               <p className="text-xs text-text-muted mt-1">
+@@ -286,8 +268,8 @@ export default function ConfiguracoesPage() {
+             <label className="flex items-center gap-3">
+               <input
+                 type="checkbox"
+-                checked={config.alertaEmail}
+-                onChange={(e) => set('alertaEmail', e.target.checked)}
++                checked={preferencias.alertaEmail}
++                onChange={(e) => setPref('alertaEmail', e.target.checked)}
+                 className="w-4 h-4 rounded border-bg-border bg-bg-elevated cursor-pointer"
+               />
+               <span className="text-sm text-text-secondary">
+@@ -296,15 +278,15 @@ export default function ConfiguracoesPage() {
+             </label>
+           </div>
+ 
+-          {config.alertaEmail && (
++          {preferencias.alertaEmail && (
+             <div>
+               <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                 E-mail para Alertas
+               </label>
+               <Input
+                 type="email"
+-                value={config.emailAlerta}
+-                onChange={(e) => set('emailAlerta', e.target.value)}
++                value={preferencias.emailAlerta}
++                onChange={(e) => setPref('emailAlerta', e.target.value)}
+                 placeholder="seu@email.com"
+               />
+             </div>
+@@ -320,32 +302,42 @@ export default function ConfiguracoesPage() {
+         <div className="space-y-3 mb-4">
+           <button
+             onClick={handleExportarJSON}
++            disabled={exporting}
+             className="w-full px-4 py-2.5 rounded-lg border border-green-600/30
+                        text-green-400 hover:bg-green-900/20 transition-colors
+-                       text-sm font-medium"
++                       text-sm font-medium disabled:opacity-50"
+           >
+-            ↓ Exportar todos os dados (JSON)
++            {exporting ? 'Exportando...' : '↓ Exportar dados da conta (JSON)'}
+           </button>
+           <button
+-            onClick={handleImportarJSON}
++            onClick={handleImportarPreferencias}
+             className="w-full px-4 py-2.5 rounded-lg border border-green-600/30
+                        text-green-400 hover:bg-green-900/20 transition-colors
+                        text-sm font-medium"
+           >
+-            ↑ Importar dados (JSON)
++            ↑ Importar preferências (JSON)
+           </button>
++          <input
++            ref={fileInputRef}
++            type="file"
++            accept=".json"
++            className="hidden"
++            onChange={handleArquivoSelecionado}
++          />
+           <button
+-            onClick={handleLimparDados}
++            onClick={handleRestaurarPadrao}
+             className="w-full px-4 py-2.5 rounded-lg border border-red-600/30
+                        text-red-400 hover:bg-red-900/20 transition-colors
+                        text-sm font-medium"
+           >
+-            🗑 Limpar todos os dados
++            🗑 Restaurar preferências padrão
+           </button>
+         </div>
+         <p className="text-xs text-text-muted">
+-          O backup exporta animais, vacinações, pesagens e configurações em
+-          formato JSON. Ao importar, os dados existentes serão substituídos.
++          O backup exporta os animais, vacinações, pesagens e preferências
++          desta conta, direto do banco de dados. Animais e vacinações são
++          gerenciados na tela de Animais e não são alterados por este
++          importador — apenas as preferências acima.
+         </p>
+       </Card>
+ 
+@@ -355,6 +347,9 @@ export default function ConfiguracoesPage() {
+           ℹ️ Sistema
+         </h2>
+         <p className="text-sm text-text-muted">Versão 1.0.0 — Rastreio</p>
++        <p className="text-xs text-text-muted mt-1">
++          Conectado como {user?.email}
++        </p>
+       </Card>
+ 
+       {/* Footer com botão salvar */}
+diff --git a/rastreio-web/app/dashboard/layout.tsx b/rastreio-web/app/dashboard/layout.tsx
+index f1e8b8d..bcea874 100644
+--- a/rastreio-web/app/dashboard/layout.tsx
++++ b/rastreio-web/app/dashboard/layout.tsx
+@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
+ import { Topbar } from '@/components/Topbar';
+ import { Sidebar } from '@/components/Sidebar';
+ import { LoadingState } from '@/components/ui/LoadingState';
++import { useAuth } from '@/contexts/AuthContext';
+ 
+ export default function DashboardLayout({
+   children,
+@@ -16,6 +17,9 @@ export default function DashboardLayout({
+   const [user, setUser] = useState<any>(null);
+   const [loading, setLoading] = useState(true);
+   const [sidebarOpen, setSidebarOpen] = useState(false);
++  // farmName vem do profile do usuário logado no Supabase (tabela
++  // "profiles"), então cada conta enxerga o nome da própria fazenda.
++  const { farmName, loading: profileLoading } = useAuth();
+ 
+   useEffect(() => {
+     const checkAuth = async () => {
+@@ -46,7 +50,7 @@ export default function DashboardLayout({
+     return () => window.removeEventListener('resize', syncSidebarState);
+   }, []);
+ 
+-  if (loading) {
++  if (loading || profileLoading) {
+     return <LoadingState />;
+   }
+ 
+@@ -54,7 +58,7 @@ export default function DashboardLayout({
+     <div className="min-h-screen overflow-x-hidden bg-bg-base font-sans">
+       <Topbar
+         userEmail={user?.email}
+-        fazendaNome="Fazenda São João"
++        fazendaNome={farmName}
+         onMenuToggle={() => setSidebarOpen((prev) => !prev)}
+       />
+       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+diff --git a/rastreio-web/contexts/AuthContext.tsx b/rastreio-web/contexts/AuthContext.tsx
+index 5ff188e..653a7fe 100644
+--- a/rastreio-web/contexts/AuthContext.tsx
++++ b/rastreio-web/contexts/AuthContext.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+ import { supabase } from '@/lib/supabase';
+-import { getUserProfile, saveFarmNameForUser, type UserProfile } from '@/lib/profile';
++import { getUserProfile, saveFarmNameForUser, saveConfiguracoesForUser, type UserProfile } from '@/lib/profile';
+ 
+ interface AuthContextValue {
+   user: any | null;
+@@ -11,6 +11,7 @@ interface AuthContextValue {
+   farmName: string;
+   refreshProfile: () => Promise<void>;
+   setFarmName: (farmName: string) => Promise<void>;
++  saveConfiguracoes: (farmName: string, configuracoes: Record<string, any>) => Promise<void>;
+ }
+ 
+ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+@@ -67,6 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+     setProfile(updatedProfile);
+   }, []);
+ 
++  const saveConfiguracoes = useCallback(async (farmName: string, configuracoes: Record<string, any>) => {
++    const result = await supabase.auth.getUser();
++    const currentUser = result.data?.user ?? null;
++
++    if (!currentUser?.id) {
++      throw new Error('Usuário não autenticado.');
++    }
++
++    const updatedProfile = await saveConfiguracoesForUser(currentUser.id, farmName, configuracoes);
++    setProfile(updatedProfile);
++  }, []);
++
+   useEffect(() => {
+     const initializeAuth = async () => {
+       const result = await supabase.auth.getSession();
+@@ -95,7 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+     farmName: profile?.farm_name?.trim() ? profile.farm_name : 'Minha Fazenda',
+     refreshProfile,
+     setFarmName,
+-  }), [loading, profile, refreshProfile, setFarmName, user]);
++    saveConfiguracoes,
++  }), [loading, profile, refreshProfile, saveConfiguracoes, setFarmName, user]);
+ 
+   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+ }
+diff --git a/rastreio-web/lib/especies.ts b/rastreio-web/lib/especies.ts
+new file mode 100644
+index 0000000..9228178
+--- /dev/null
++++ b/rastreio-web/lib/especies.ts
+@@ -0,0 +1,149 @@
++/**
++ * Configuração central de espécies.
++ *
++ * Este arquivo é a única fonte de verdade sobre como o painel de "Animais"
++ * deve se comportar para cada espécie: quais categorias existem, se o
++ * animal é identificado/buscado por nome (ex: cavalos) ou por brinco
++ * (ex: bovinos, suínos, aves), e os rótulos exibidos na tela.
++ *
++ * Para adicionar uma nova espécie no futuro, basta incluir uma nova entrada
++ * neste objeto — todo o formulário, tabela e busca se adaptam sozinhos.
++ */
++
++export type Especie = 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave';
++
++export interface CategoriaOption {
++  value: string;
++  label: string;
++}
++
++export interface EspecieConfig {
++  label: string;
++  labelPlural: string;
++  emoji: string;
++  /** Rótulo do campo de identificação numérica/física do animal (brinco, anilha, etc.) */
++  identificadorLabel: string;
++  identificadorPlaceholder: string;
++  /** Se true, o campo "Nome" é obrigatório e vira o principal meio de busca (ex: equinos) */
++  nomeObrigatorio: boolean;
++  nomePlaceholder: string;
++  categorias: CategoriaOption[];
++}
++
++export const ESPECIES: Record<Especie, EspecieConfig> = {
++  bovino: {
++    label: 'Bovino',
++    labelPlural: 'Bovinos',
++    emoji: '🐄',
++    identificadorLabel: 'Brinco',
++    identificadorPlaceholder: 'Ex: 001',
++    nomeObrigatorio: false,
++    nomePlaceholder: 'Ex: Mimosa (opcional)',
++    categorias: [
++      { value: 'bezerro', label: 'Bezerro' },
++      { value: 'novilha', label: 'Novilha' },
++      { value: 'vaca', label: 'Vaca' },
++      { value: 'touro', label: 'Touro' },
++      { value: 'boi', label: 'Boi' },
++      { value: 'outro', label: 'Outro' },
++    ],
++  },
++  equino: {
++    label: 'Equino',
++    labelPlural: 'Equinos',
++    emoji: '🐴',
++    identificadorLabel: 'Brinco / Chip',
++    identificadorPlaceholder: 'Ex: EQ-001',
++    nomeObrigatorio: true,
++    nomePlaceholder: 'Ex: Trovão',
++    categorias: [
++      { value: 'potro', label: 'Potro' },
++      { value: 'potranca', label: 'Potranca' },
++      { value: 'egua', label: 'Égua' },
++      { value: 'garanhao', label: 'Garanhão' },
++      { value: 'castrado', label: 'Castrado' },
++      { value: 'outro', label: 'Outro' },
++    ],
++  },
++  ovino: {
++    label: 'Ovino',
++    labelPlural: 'Ovinos',
++    emoji: '🐑',
++    identificadorLabel: 'Brinco',
++    identificadorPlaceholder: 'Ex: OV-001',
++    nomeObrigatorio: false,
++    nomePlaceholder: 'Ex: Nuvem (opcional)',
++    categorias: [
++      { value: 'cordeiro', label: 'Cordeiro' },
++      { value: 'borrega', label: 'Borrega' },
++      { value: 'ovelha', label: 'Ovelha' },
++      { value: 'carneiro', label: 'Carneiro' },
++      { value: 'outro', label: 'Outro' },
++    ],
++  },
++  caprino: {
++    label: 'Caprino',
++    labelPlural: 'Caprinos',
++    emoji: '🐐',
++    identificadorLabel: 'Brinco',
++    identificadorPlaceholder: 'Ex: CP-001',
++    nomeObrigatorio: false,
++    nomePlaceholder: 'Ex: Pingo (opcional)',
++    categorias: [
++      { value: 'cabrito', label: 'Cabrito' },
++      { value: 'caprina', label: 'Caprina' },
++      { value: 'cabra', label: 'Cabra' },
++      { value: 'bode', label: 'Bode' },
++      { value: 'outro', label: 'Outro' },
++    ],
++  },
++  suino: {
++    label: 'Suíno',
++    labelPlural: 'Suínos',
++    emoji: '🐖',
++    identificadorLabel: 'Brinco / Tatuagem',
++    identificadorPlaceholder: 'Ex: SU-001',
++    nomeObrigatorio: false,
++    nomePlaceholder: 'Opcional',
++    categorias: [
++      { value: 'leitao', label: 'Leitão' },
++      { value: 'marra', label: 'Marrã' },
++      { value: 'porca', label: 'Porca' },
++      { value: 'cachaco', label: 'Cachaço' },
++      { value: 'outro', label: 'Outro' },
++    ],
++  },
++  ave: {
++    label: 'Ave',
++    labelPlural: 'Aves',
++    emoji: '🐔',
++    identificadorLabel: 'Anilha / Lote',
++    identificadorPlaceholder: 'Ex: AV-001',
++    nomeObrigatorio: false,
++    nomePlaceholder: 'Opcional',
++    categorias: [
++      { value: 'pintainho', label: 'Pintainho' },
++      { value: 'frango', label: 'Frango de corte' },
++      { value: 'poedeira', label: 'Poedeira' },
++      { value: 'matriz', label: 'Matriz' },
++      { value: 'reprodutor', label: 'Reprodutor' },
++      { value: 'outro', label: 'Outro' },
++    ],
++  },
++};
++
++export const ESPECIE_OPTIONS: Array<{ value: Especie; label: string; emoji: string }> =
++  (Object.keys(ESPECIES) as Especie[]).map((key) => ({
++    value: key,
++    label: ESPECIES[key].label,
++    emoji: ESPECIES[key].emoji,
++  }));
++
++export function getEspecieConfig(especie: string | undefined | null): EspecieConfig {
++  return ESPECIES[(especie as Especie) || 'bovino'] || ESPECIES.bovino;
++}
++
++/** Categoria padrão (primeira da lista) ao trocar de espécie no formulário */
++export function categoriaPadrao(especie: string | undefined | null): string {
++  return getEspecieConfig(especie).categorias[0]?.value || 'outro';
++}
+diff --git a/rastreio-web/lib/fazenda.ts b/rastreio-web/lib/fazenda.ts
+index a72c14b..6250f2f 100644
+--- a/rastreio-web/lib/fazenda.ts
++++ b/rastreio-web/lib/fazenda.ts
+@@ -54,7 +54,7 @@ export async function getCurrentFarmId() {
+   return (await createDefaultFarmForUser(user.id)).id as string;
+ }
+ 
+-export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_atual'> & { id?: string; brinco: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
++export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_atual'> & { id?: string; brinco: string; nome?: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
+   const token = await getSessionToken();
+   if (!token) {
+     throw new Error('Sessão expirada. Faça login novamente para continuar.');
+@@ -66,6 +66,8 @@ export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_at
+   const payload = {
+     id: input.id || crypto.randomUUID(),
+     brinco: input.brinco,
++    nome: input.nome?.trim() || null,
++    especie: input.especie || 'bovino',
+     raca: input.raca || null,
+     sexo: input.sexo || null,
+     data_nascimento: input.data_nascimento || null,
+diff --git a/rastreio-web/lib/profile.ts b/rastreio-web/lib/profile.ts
+index 8e7a4ba..424c7d6 100644
+--- a/rastreio-web/lib/profile.ts
++++ b/rastreio-web/lib/profile.ts
+@@ -4,12 +4,17 @@ export interface UserProfile {
+   id: string;
+   farm_name: string | null;
+   created_at: string | null;
++  // Guarda todas as demais preferências da tela de Configurações
++  // (responsável, CNPJ, alertas, etc.) em um único JSONB por usuário.
++  configuracoes?: Record<string, any> | null;
+ }
+ 
++const PROFILE_COLUMNS = 'id, farm_name, created_at, configuracoes';
++
+ export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+   const { data, error } = await supabase
+     .from('profiles')
+-    .select('id, farm_name, created_at')
++    .select(PROFILE_COLUMNS)
+     .eq('id', userId)
+     .maybeSingle();
+ 
+@@ -29,7 +34,7 @@ export async function saveFarmNameForUser(userId: string, farmName: string): Pro
+       [{ id: userId, farm_name: normalizedFarmName }],
+       { onConflict: 'id' },
+     )
+-    .select('id, farm_name, created_at')
++    .select(PROFILE_COLUMNS)
+     .single();
+ 
+   if (error) {
+@@ -46,7 +51,37 @@ export async function updateProfileFarmName(userId: string, farmName: string): P
+     .from('profiles')
+     .update({ farm_name: normalizedFarmName })
+     .eq('id', userId)
+-    .select('id, farm_name, created_at')
++    .select(PROFILE_COLUMNS)
++    .single();
++
++  if (error) {
++    throw error;
++  }
++
++  return data as UserProfile;
++}
++
++/**
++ * Salva TODAS as configurações da tela de Configurações (responsável, CNPJ,
++ * cidade/estado, alertas, e-mail de alerta, etc.) no Supabase, além do nome
++ * da fazenda. Usa upsert para funcionar tanto na primeira gravação quanto
++ * em atualizações seguintes, e assim os dados voltam a aparecer em
++ * qualquer login/dispositivo da mesma conta.
++ */
++export async function saveConfiguracoesForUser(
++  userId: string,
++  farmName: string,
++  configuracoes: Record<string, any>,
++): Promise<UserProfile> {
++  const normalizedFarmName = (farmName || 'Minha Fazenda').trim() || 'Minha Fazenda';
++
++  const { data, error } = await supabase
++    .from('profiles')
++    .upsert(
++      [{ id: userId, farm_name: normalizedFarmName, configuracoes }],
++      { onConflict: 'id' },
++    )
++    .select(PROFILE_COLUMNS)
+     .single();
+ 
+   if (error) {
+diff --git a/rastreio-web/types/index.ts b/rastreio-web/types/index.ts
+index f12db5a..4036c88 100644
+--- a/rastreio-web/types/index.ts
++++ b/rastreio-web/types/index.ts
+@@ -1,10 +1,15 @@
+ export type Sexo = 'M' | 'F';
+-export type Categoria = 'bezerro' | 'novilha' | 'vaca' | 'touro' | 'boi' | 'outro';
++export type Especie = 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave';
++// Categoria é dependente da espécie (ver lib/especies.ts). Mantemos string
++// aqui para aceitar o vocabulário de qualquer espécie sem quebrar tipos.
++export type Categoria = string;
+ 
+ export interface Animal {
+   id: string;
+   fazenda_id: string;
+   brinco: string;
++  nome?: string;
++  especie: Especie;
+   raca?: string;
+   sexo?: Sexo;
+   data_nascimento?: string;
