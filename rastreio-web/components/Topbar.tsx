@@ -1,7 +1,7 @@
-'use client';
+ 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Modal } from './ui/Modal';
 import { SinoNotificacoes } from './SinoNotificacoes';
@@ -12,9 +12,11 @@ import { useAuth } from '@/contexts/AuthContext';
 interface TopbarProps {
   readonly userEmail?: string;
   readonly fazendaNome?: string;
+  readonly isMenuOpen?: boolean;
+  readonly onMenuToggle?: () => void;
 }
 
-export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
+export function Topbar({ userEmail, fazendaNome, isMenuOpen, onMenuToggle }: TopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -62,6 +64,16 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
                          flex items-center justify-between px-6">
         {/* Logo */}
         <div className="flex items-center gap-3">
+          {/* Hamburger - mobile only */}
+          <button
+            onClick={() => onMenuToggle?.()}
+            aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+            className="mr-2 w-10 h-10 flex items-center justify-center rounded-md
+                       focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-cta-DEFAULT
+                       md:hidden"
+          >
+            <Menu size={20} />
+          </button>
           <div className="w-7 h-7 rounded-lg bg-[#22C55E]
                           flex items-center justify-center text-white
                           font-bold text-sm shadow-[0_0_16px_rgba(34,197,94,0.8)]">
@@ -71,7 +83,7 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
             Rastreio
           </span>
           <span className="text-bg-border">|</span>
-          <span className="text-xs text-text-muted">{profileLoading ? 'Carregando...' : displayFarmName}</span>
+          <span className="text-xs text-text-muted hidden md:inline-block">{profileLoading ? 'Carregando...' : displayFarmName}</span>
         </div>
 
         {/* Direita */}
@@ -90,7 +102,7 @@ export function Topbar({ userEmail, fazendaNome }: TopbarProps) {
                               font-bold text-text-inverse">
                 {initial}
               </div>
-              <span className="text-xs text-text-secondary max-w-[140px] truncate">
+              <span className="text-xs text-text-secondary max-w-[140px] truncate hidden md:inline-block">
                 {displayEmail}
               </span>
               <ChevronDown size={12} className="text-text-muted" />
