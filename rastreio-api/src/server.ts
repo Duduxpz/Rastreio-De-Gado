@@ -19,10 +19,23 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// CORS: aceita múltiplas origens configuráveis via CORS_ORIGIN (vírgula-separated)
+// Se CORS_ORIGIN estiver vazio, permite localhost:3000 por padrão.
+const rawOrigins = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const allowedOrigins = rawOrigins.split(',').map((s) => s.trim()).filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (incomingOrigin: string | undefined, callback: any) => {
+    // permitir requests sem origin (tools, same-origin)
+    if (!incomingOrigin) return callback(null, true);
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(incomingOrigin)) {
+      return callback(null, true);
+    }
+    // negar se não estiver na lista
+    return callback(new Error('CORS origin denied'), false);
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -7,11 +8,15 @@ export const api = axios.create({
   timeout: 10000,
 });
 
-// Interceptor para adicionar token JWT
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Interceptor assíncrono para adicionar token JWT (compatível com React Native)
+api.interceptors.request.use(async (config) => {
+  try {
+    const token = await AsyncStorage.getItem('authToken');
+    if (token && config && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (err) {
+    // falha ao ler token — continuar sem header
   }
   return config;
 });
