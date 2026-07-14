@@ -54,7 +54,7 @@ export async function getCurrentFarmId() {
   return (await createDefaultFarmForUser(user.id)).id as string;
 }
 
-export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_atual'> & { id?: string; brinco: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
+export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_atual'> & { id?: string; brinco: string; nome?: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
   const token = await getSessionToken();
   if (!token) {
     throw new Error('Sessão expirada. Faça login novamente para continuar.');
@@ -66,6 +66,8 @@ export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_at
   const payload = {
     id: input.id || crypto.randomUUID(),
     brinco: input.brinco,
+    nome: input.nome?.trim() || null,
+    especie: input.especie || 'bovino',
     raca: input.raca || null,
     sexo: input.sexo || null,
     data_nascimento: input.data_nascimento || null,

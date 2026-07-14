@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Topbar } from '@/components/Topbar';
 import { Sidebar } from '@/components/Sidebar';
 import { LoadingState } from '@/components/ui/LoadingState';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout({
   children,
@@ -16,6 +17,9 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // farmName vem do profile do usuário logado no Supabase (tabela
+  // "profiles"), então cada conta enxerga o nome da própria fazenda.
+  const { farmName, loading: profileLoading } = useAuth();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -46,7 +50,7 @@ export default function DashboardLayout({
     return () => window.removeEventListener('resize', syncSidebarState);
   }, []);
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <LoadingState />;
   }
 
@@ -54,7 +58,7 @@ export default function DashboardLayout({
     <div className="min-h-screen overflow-x-hidden bg-bg-base font-sans">
       <Topbar
         userEmail={user?.email}
-        fazendaNome="Fazenda São João"
+        fazendaNome={farmName}
         onMenuToggle={() => setSidebarOpen((prev) => !prev)}
       />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

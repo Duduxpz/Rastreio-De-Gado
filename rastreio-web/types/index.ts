@@ -1,10 +1,15 @@
 export type Sexo = 'M' | 'F';
-export type Categoria = 'bezerro' | 'novilha' | 'vaca' | 'touro' | 'boi' | 'outro';
+export type Especie = 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave';
+// Categoria é dependente da espécie (ver lib/especies.ts). Mantemos string
+// aqui para aceitar o vocabulário de qualquer espécie sem quebrar tipos.
+export type Categoria = string;
 
 export interface Animal {
   id: string;
   fazenda_id: string;
   brinco: string;
+  nome?: string;
+  especie: Especie;
   raca?: string;
   sexo?: Sexo;
   data_nascimento?: string;
