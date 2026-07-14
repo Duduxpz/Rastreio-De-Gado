@@ -37,15 +37,23 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   }, [isOpen]);
   const baseClasses = `fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-56
                        bg-bg-surface border-r border-bg-border
-                       flex flex-col justify-between py-4
+                       flex flex-col py-2
                        transform transition-transform duration-300
                        lg:translate-x-0 lg:static lg:inset-auto lg:h-[calc(100vh-3.5rem)]`;
   const hiddenClass = isOpen ? 'translate-x-0' : '-translate-x-full';
 
   return (
     <aside className={`${baseClasses} ${hiddenClass} z-40`}>
-      {/* Close button - only visible on small screens */}
-      <div className="px-2 pb-2 lg:hidden">
+      {/* Header (compact) - mobile only: logo + close */}
+      <div className="px-3 py-2 flex items-center justify-between lg:hidden border-b border-bg-border/20">
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg bg-[#22C55E]
+                          flex items-center justify-center text-white
+                          font-bold text-sm shadow-[0_0_12px_rgba(34,197,94,0.6)]">
+            R
+          </div>
+          <span className="font-semibold text-text-primary text-sm">Rastreio</span>
+        </div>
         <button
           onClick={() => onClose?.()}
           aria-label="Fechar menu"
@@ -55,7 +63,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <X size={18} />
         </button>
       </div>
-      <nav ref={navRef} className="flex flex-col gap-0.5 px-2">
+
+      <nav ref={navRef} className="flex flex-col gap-2 px-3 pt-2">
         {nav.map(({ href, icon: Icon, label }) => {
           const active = path === href;
           const iconClasses = active ? 'text-text-inverse' : 'text-brand-light';
@@ -63,7 +72,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <Link key={href} href={href}
               onClick={() => onClose?.()}
               className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-lg min-h-[44px]
+                flex items-center gap-3 px-3 py-2 rounded-lg min-h-[44px]
                 text-sm font-medium transition-all duration-150
                 ${active
                   ? 'bg-brand-DEFAULT text-text-inverse shadow-[0_2px_8px_rgba(34,197,94,0.3)]'
@@ -81,7 +90,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           );
         })}
       </nav>
-      <div className="px-4">
+      <div className="px-4 mt-auto pt-3 pb-4 border-t border-bg-border/30">
         <Link href="/dashboard/configuracoes"
           onClick={() => onClose?.()}
           className="flex items-center gap-2 text-xs text-text-muted
