@@ -67,7 +67,6 @@ export async function saveAnimalToSupabase(input: Partial<Animal> & { id?: strin
     lote: input.lote || null,
     pasto: input.pasto || null,
     categoria: input.categoria || null,
-    especie: input.especie || 'bovino',
     ativo: true,
     updated_at: new Date().toISOString(),
   };

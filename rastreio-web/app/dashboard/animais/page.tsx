@@ -14,7 +14,6 @@ import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
 import { VaccinationScheduler } from '@/lib/vaccination-scheduler';
 import { saveAnimalToSupabase } from '@/lib/fazenda';
-import { animalSpeciesOptions, getAnimalCategoryLabel, getAnimalSpeciesLabel } from '@/lib/animal-species';
 import type { Animal, Categoria, Sexo } from '@/types';
 
 export default function AnimaisPage() {
@@ -29,7 +28,7 @@ export default function AnimaisPage() {
     sexo: 'M' as Sexo,
     data_nascimento: '',
     categoria: 'bezerro' as Categoria,
-    especie: 'bovino' as 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave' | 'outro',
+    especie: 'bovino' as 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave',
     lote: '',
     pasto: '',
     peso_atual: '',
@@ -55,7 +54,7 @@ export default function AnimaisPage() {
         return;
       }
 
-      const stored = globalThis.localStorage?.getItem('animais');
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
       if (stored) {
         const locais = JSON.parse(stored || '[]');
         const mapped = locais.map((a: any) => ({
@@ -65,11 +64,10 @@ export default function AnimaisPage() {
           raca: a.raca || '',
           sexo: a.sexo === 'Macho' ? 'M' : a.sexo === 'Fêmea' ? 'F' : (a.sexo || ''),
           data_nascimento: a.dataNascimento || a.data_nascimento || '',
-          peso_atual: a.peso ? (Number.isNaN(Number(a.peso)) ? undefined : Number(a.peso)) : (a.peso_atual || undefined),
+          peso_atual: a.peso ? (isNaN(Number(a.peso)) ? undefined : Number(a.peso)) : (a.peso_atual || undefined),
           lote: a.lote || '',
           pasto: a.pasto || '',
           categoria: (a.categoria || '').toLowerCase(),
-          especie: a.especie || 'bovino',
           foto_url: a.foto_url || null,
           ativo: typeof a.ativo === 'boolean' ? a.ativo : true,
           created_at: a.criadoEm || a.created_at || new Date().toISOString(),
@@ -85,13 +83,25 @@ export default function AnimaisPage() {
   };
 
   const handleCriarAnimal = async () => {
+    // Criar animal conforme o schema solicitado e salvar em localStorage
     const novoAnimal = {
       id: Date.now().toString(),
       brinco: formData.brinco || '',
       raca: formData.raca || '',
-      sexo: formData.sexo === 'M' ? 'Macho' : 'Fêmea',
+      sexo: formData.sexo === 'M' ? 'Macho' : formData.sexo === 'F' ? 'Fêmea' : (formData.sexo || ''),
       dataNascimento: formData.data_nascimento || '',
-      categoria: getAnimalCategoryLabel(formData.especie, formData.categoria),
+      categoria:
+        formData.categoria === 'bezerro'
+          ? 'Bezerro'
+          : formData.categoria === 'novilha'
+          ? 'Novilha'
+          : formData.categoria === 'vaca'
+          ? 'Vaca'
+          : formData.categoria === 'touro'
+          ? 'Touro'
+          : formData.categoria === 'boi'
+          ? 'Boi'
+          : formData.categoria || '',
       especie: formData.especie,
       peso: formData.peso_atual || '',
       lote: formData.lote || '',
@@ -108,15 +118,14 @@ export default function AnimaisPage() {
         sexo: formData.sexo,
         data_nascimento: novoAnimal.dataNascimento,
         categoria: formData.categoria,
-        especie: formData.especie,
         peso_atual: Number.isFinite(pesoNumerico) ? pesoNumerico : undefined,
         lote: novoAnimal.lote,
         pasto: novoAnimal.pasto,
       });
 
-      if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
-        const existentes = JSON.parse(globalThis.localStorage.getItem('animais') || '[]');
-        globalThis.localStorage.setItem('animais', JSON.stringify([...existentes, novoAnimal]));
+      if (typeof window !== 'undefined') {
+        const existentes = JSON.parse(localStorage.getItem('animais') || '[]');
+        localStorage.setItem('animais', JSON.stringify([...existentes, novoAnimal]));
 
         const agendamentos = VaccinationScheduler.generateSchedule({
           id: novoAnimal.id,
@@ -127,7 +136,7 @@ export default function AnimaisPage() {
           especie: formData.especie,
         });
 
-        const vacinacoesExistentes = JSON.parse(globalThis.localStorage.getItem('vacinacoes') || '[]');
+        const vacinacoesExistentes = JSON.parse(localStorage.getItem('vacinacoes') || '[]');
         const vacinacoesAtualizadas = [
           ...vacinacoesExistentes,
           ...agendamentos.map((item) => ({
@@ -144,7 +153,7 @@ export default function AnimaisPage() {
             criadoEm: new Date().toISOString(),
           })),
         ];
-        globalThis.localStorage.setItem('vacinacoes', JSON.stringify(vacinacoesAtualizadas));
+        localStorage.setItem('vacinacoes', JSON.stringify(vacinacoesAtualizadas));
       }
 
       const mappedAnimal = {
@@ -158,7 +167,6 @@ export default function AnimaisPage() {
         lote: savedAnimal.lote || '',
         pasto: savedAnimal.pasto || '',
         categoria: (savedAnimal.categoria || '').toLowerCase(),
-        especie: savedAnimal.especie || formData.especie,
         foto_url: savedAnimal.foto_url || null,
         ativo: savedAnimal.ativo ?? true,
         created_at: savedAnimal.created_at || new Date().toISOString(),
@@ -188,7 +196,8 @@ export default function AnimaisPage() {
     const matchSearch =
       animal.brinco.toLowerCase().includes(search.toLowerCase()) ||
       animal.raca?.toLowerCase().includes(search.toLowerCase());
-    const matchCategoria = filtroCategoria === '' || animal.categoria === filtroCategoria || animal.especie === filtroCategoria;
+    const matchCategoria =
+      filtroCategoria === '' || animal.categoria === filtroCategoria;
     return matchSearch && matchCategoria;
   });
 
@@ -210,8 +219,8 @@ export default function AnimaisPage() {
       />
 
       {/* Filtros */}
-      <Card className="p-4 sm:p-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <Card className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Input
             label="Buscar por brinco ou raça"
             placeholder="Ex: 001, Nelore"
@@ -219,25 +228,20 @@ export default function AnimaisPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
           <div>
-            <label htmlFor="species-filter" className="mb-2 block text-sm font-medium text-text-secondary">
-              Espécie / Categoria
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Categoria
             </label>
             <select
-              id="species-filter"
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
-              className="w-full rounded-lg border border-bg-border bg-bg-elevated px-4 py-2.5 text-text-primary focus:border-brand-DEFAULT focus:ring-2 focus:ring-brand-DEFAULT"
+              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
             >
               <option value="">Todas</option>
-              {animalSpeciesOptions.map((option) => (
-                <optgroup key={option.value} label={option.label}>
-                  {option.categories.map((category) => (
-                    <option key={`${option.value}-${category.value}`} value={category.value}>
-                      {option.label} · {category.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
+              <option value="bezerro">Bezerro</option>
+              <option value="novilha">Novilha</option>
+              <option value="vaca">Vaca</option>
+              <option value="touro">Touro</option>
+              <option value="boi">Boi</option>
             </select>
           </div>
         </div>
@@ -255,7 +259,7 @@ export default function AnimaisPage() {
           }}
         />
       ) : (
-        <Card className="overflow-x-auto p-4 sm:p-6">
+        <Card className="p-6 overflow-x-auto">
           <Table<Animal>
             data={animaisFiltrados}
             keyExtractor={(animal) => animal.id}
@@ -273,13 +277,19 @@ export default function AnimaisPage() {
                 render: (value) => value || '-',
               },
               {
-                key: 'especie',
-                label: 'Espécie',
-                render: (value, row) => (
-                  <div className="space-y-1">
-                    <p className="font-medium text-text-primary">{getAnimalSpeciesLabel(String(value || row.especie || 'bovino'))}</p>
-                    <p className="text-xs text-text-muted">{getAnimalCategoryLabel(String(row.especie || 'bovino'), row.categoria)}</p>
-                  </div>
+                key: 'categoria',
+                label: 'Categoria',
+                render: (value) => (
+                  <Badge
+                    label={value || 'N/A'}
+                    variant={
+                      value === 'vaca'
+                        ? 'success'
+                        : value === 'touro'
+                          ? 'warning'
+                          : 'info'
+                    }
+                  />
                 ),
               },
               {
@@ -304,7 +314,7 @@ export default function AnimaisPage() {
               },
             ]}
             onRowClick={(animal) => {
-              globalThis.window.location.href = `/dashboard/animais/${animal.id}`;
+              window.location.href = `/dashboard/animais/${animal.id}`;
             }}
           />
         </Card>
@@ -343,35 +353,31 @@ export default function AnimaisPage() {
               setFormData({ ...formData, raca: e.target.value })
             }
           />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="animal-species" className="mb-2 block text-sm font-medium text-text-secondary">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Espécie
               </label>
               <select
-                id="animal-species"
                 value={formData.especie}
-                onChange={(e) => {
-                  const nextEspecie = e.target.value as typeof formData.especie;
-                  const nextSpeciesMeta = animalSpeciesOptions.find((option) => option.value === nextEspecie);
-                  const fallbackCategory = nextSpeciesMeta?.categories[0]?.value || 'outro';
-                  setFormData({ ...formData, especie: nextEspecie, categoria: fallbackCategory as Categoria });
-                }}
-                className="w-full rounded-lg border border-bg-border bg-bg-elevated px-4 py-2 text-text-primary focus:border-brand-DEFAULT focus:ring-2 focus:ring-brand-DEFAULT"
+                onChange={(e) =>
+                  setFormData({ ...formData, especie: e.target.value as typeof formData.especie })
+                }
+                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
               >
-                {animalSpeciesOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                <option value="bovino">Bovino</option>
+                <option value="equino">Equino</option>
+                <option value="ovino">Ovino</option>
+                <option value="caprino">Caprino</option>
+                <option value="suino">Suíno</option>
+                <option value="ave">Ave</option>
               </select>
             </div>
             <div>
-              <label htmlFor="animal-sex" className="mb-2 block text-sm font-medium text-text-secondary">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Sexo
               </label>
               <select
-                id="animal-sex"
                 value={formData.sexo}
                 onChange={(e) =>
                   setFormData({
@@ -379,31 +385,30 @@ export default function AnimaisPage() {
                     sexo: e.target.value as Sexo,
                   })
                 }
-                className="w-full rounded-lg border border-bg-border bg-bg-elevated px-4 py-2 text-text-primary"
+                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
               >
                 <option value="M">Macho</option>
                 <option value="F">Fêmea</option>
               </select>
             </div>
+            <Input
+              label="Data de Nascimento"
+              type="date"
+              value={formData.data_nascimento}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  data_nascimento: e.target.value,
+                })
+              }
+            />
           </div>
-          <Input
-            label="Data de Nascimento"
-            type="date"
-            value={formData.data_nascimento}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                data_nascimento: e.target.value,
-              })
-            }
-          />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="animal-category" className="mb-2 block text-sm font-medium text-text-secondary">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
                 Categoria
               </label>
               <select
-                id="animal-category"
                 value={formData.categoria}
                 onChange={(e) =>
                   setFormData({
@@ -411,15 +416,13 @@ export default function AnimaisPage() {
                     categoria: e.target.value as Categoria,
                   })
                 }
-                className="w-full rounded-lg border border-bg-border bg-bg-elevated px-4 py-2 text-text-primary"
+                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
               >
-                {animalSpeciesOptions
-                  .find((option) => option.value === formData.especie)
-                  ?.categories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
-                    </option>
-                  ))}
+                <option value="bezerro">Bezerro</option>
+                <option value="novilha">Novilha</option>
+                <option value="vaca">Vaca</option>
+                <option value="touro">Touro</option>
+                <option value="boi">Boi</option>
               </select>
             </div>
             <Input
@@ -432,7 +435,7 @@ export default function AnimaisPage() {
               }
             />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-4">
             <Input
               label="Lote"
               placeholder="Ex: Lote A"
