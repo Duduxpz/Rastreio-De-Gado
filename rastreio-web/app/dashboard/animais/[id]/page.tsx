@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Table } from '@/components/ui/Table';
 import { supabase } from '@/lib/supabase';
 import { notificarDashboard } from '@/lib/notificarDashboard';
+import { getEspecieConfig } from '@/lib/especies';
 import type { Animal, Pesagem, Vacinacao } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -46,37 +47,10 @@ export default function AnimalDetailPage() {
   const carregarDados = async () => {
     try {
       setLoading(true);
-      // Tentar carregamento local primeiro
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
-      if (stored) {
-        const locais = JSON.parse(stored || '[]');
-        const encontrado = locais.find((a: any) => a.id === animalId);
-        if (encontrado) {
-          // Mapear para tipo Animal usado pela UI
-          const mapped = {
-            id: encontrado.id,
-            fazenda_id: encontrado.fazenda_id || '',
-            brinco: encontrado.brinco || '',
-            raca: encontrado.raca || '',
-            sexo: encontrado.sexo === 'Macho' ? 'M' : encontrado.sexo === 'Fêmea' ? 'F' : (encontrado.sexo || ''),
-            data_nascimento: encontrado.dataNascimento || encontrado.data_nascimento || '',
-            peso_atual: encontrado.peso ? (isNaN(Number(encontrado.peso)) ? null : Number(encontrado.peso)) : null,
-            lote: encontrado.lote || '',
-            pasto: encontrado.pasto || '',
-            categoria: (encontrado.categoria || '').toLowerCase(),
-            foto_url: encontrado.foto_url || null,
-            ativo: true,
-            created_at: encontrado.criadoEm || new Date().toISOString(),
-            updated_at: encontrado.updated_at || new Date().toISOString(),
-          };
-          setAnimal(mapped as Animal);
-          setVacinacoes([]);
-          setPesagens([]);
-          return;
-        }
-      }
-
-      // Fallback para Supabase caso não exista localmente
+      // Sempre lê direto do Supabase. O RLS garante que cada usuário só
+      // enxerga os animais da própria fazenda — não usamos mais localStorage
+      // compartilhado aqui, pois ele misturava dados entre contas diferentes
+      // no mesmo navegador.
       const { data: animalData, error: animalErr } = await supabase
         .from('animais')
         .select('*')
@@ -171,6 +145,11 @@ export default function AnimalDetailPage() {
   }
 
   const ultimaVacinacao = vacinacoes[0];
+  const especieConfig = getEspecieConfig(animal.especie);
+  const categoriaLabel =
+    especieConfig.categorias.find((c) => c.value === animal.categoria)?.label ||
+    animal.categoria ||
+    'N/A';
 
   const graficoData = pesagens
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
@@ -184,12 +163,12 @@ export default function AnimalDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title={`Brinco ${animal.brinco}`}
-        description={animal.raca || 'Animal cadastrado na fazenda'}
+        title={animal.nome ? `${animal.nome} · ${animal.brinco}` : `Brinco ${animal.brinco}`}
+        description={`${especieConfig.emoji} ${especieConfig.label}${animal.raca ? ` · ${animal.raca}` : ''}`}
         breadcrumb={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Animais', href: '/dashboard/animais' },
-          { label: animal.brinco },
+          { label: animal.nome || animal.brinco },
         ]}
       />
 
@@ -200,6 +179,18 @@ export default function AnimalDetailPage() {
             Informações Básicas
           </h3>
           <div className="space-y-3">
+            {animal.nome && (
+              <div>
+                <p className="text-xs text-text-muted">Nome</p>
+                <p className="font-semibold text-text-primary">{animal.nome}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-text-muted">Espécie</p>
+              <p className="font-semibold text-text-primary">
+                {especieConfig.emoji} {especieConfig.label}
+              </p>
+            </div>
             <div>
               <p className="text-xs text-text-muted">Raça</p>
               <p className="font-semibold text-text-primary">
@@ -215,7 +206,7 @@ export default function AnimalDetailPage() {
             <div>
               <p className="text-xs text-text-muted">Categoria</p>
               <Badge
-                label={animal.categoria || 'N/A'}
+                label={categoriaLabel}
                 variant="info"
               />
             </div>

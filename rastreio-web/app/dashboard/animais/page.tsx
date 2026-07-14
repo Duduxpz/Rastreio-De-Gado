@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,29 +14,38 @@ import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
 import { VaccinationScheduler } from '@/lib/vaccination-scheduler';
 import { saveAnimalToSupabase } from '@/lib/fazenda';
+import { ESPECIE_OPTIONS, getEspecieConfig, categoriaPadrao, type Especie } from '@/lib/especies';
 import { useToast } from '@/hooks/useToast';
 import { Toast } from '@/components/ui/Toast';
-import type { Animal, Categoria, Sexo } from '@/types';
+import type { Animal, Sexo } from '@/types';
+
+const formInicial = {
+  brinco: '',
+  nome: '',
+  raca: '',
+  sexo: 'M' as Sexo,
+  data_nascimento: '',
+  categoria: categoriaPadrao('bovino'),
+  especie: 'bovino' as Especie,
+  lote: '',
+  pasto: '',
+  peso_atual: '',
+};
 
 export default function AnimaisPage() {
   const [animais, setAnimais] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filtroEspecie, setFiltroEspecie] = useState<string>('');
   const [filtroCategoria, setFiltroCategoria] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
-  const [formData, setFormData] = useState({
-    brinco: '',
-    raca: '',
-    sexo: 'M' as Sexo,
-    data_nascimento: '',
-    categoria: 'bezerro' as Categoria,
-    especie: 'bovino' as 'bovino' | 'equino' | 'ovino' | 'caprino' | 'suino' | 'ave',
-    lote: '',
-    pasto: '',
-    peso_atual: '',
-  });
+  const [formData, setFormData] = useState(formInicial);
+
+  // Painel dinâmico: tudo o que muda de acordo com a espécie escolhida vem
+  // deste objeto (rótulos, categorias disponíveis, se o nome é obrigatório).
+  const especieConfig = getEspecieConfig(formData.especie);
 
   useEffect(() => {
     carregarAnimais();
@@ -46,157 +55,94 @@ export default function AnimaisPage() {
     try {
       setLoading(true);
 
+      // Cada usuário só enxerga os animais da própria fazenda: o filtro é
+      // garantido pelo RLS do Supabase (fazenda_id ligado ao owner_id do
+      // usuário logado), então basta consultar a tabela normalmente.
       const { data, error } = await supabase
         .from('animais')
         .select('*')
+        .eq('ativo', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        setAnimais(data as Animal[]);
-        return;
-      }
-
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
-      if (stored) {
-        const locais = JSON.parse(stored || '[]');
-        const mapped = locais.map((a: any) => ({
-          id: a.id,
-          fazenda_id: a.fazenda_id || '',
-          brinco: a.brinco || '',
-          raca: a.raca || '',
-          sexo: a.sexo === 'Macho' ? 'M' : a.sexo === 'Fêmea' ? 'F' : (a.sexo || ''),
-          data_nascimento: a.dataNascimento || a.data_nascimento || '',
-          peso_atual: a.peso ? (isNaN(Number(a.peso)) ? undefined : Number(a.peso)) : (a.peso_atual || undefined),
-          lote: a.lote || '',
-          pasto: a.pasto || '',
-          categoria: (a.categoria || '').toLowerCase(),
-          foto_url: a.foto_url || null,
-          ativo: typeof a.ativo === 'boolean' ? a.ativo : true,
-          created_at: a.criadoEm || a.created_at || new Date().toISOString(),
-          updated_at: a.updated_at || new Date().toISOString(),
-        }));
-        setAnimais(mapped || []);
-      }
+      setAnimais((data as Animal[]) || []);
     } catch (error) {
       console.error('Erro ao carregar animais:', error);
+      addToast('Não foi possível carregar os animais. Tente novamente.', 'error', 5000);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleEspecieChange = (novaEspecie: Especie) => {
+    setFormData((prev) => ({
+      ...prev,
+      especie: novaEspecie,
+      // A categoria é sempre relativa à espécie, então trocamos para a
+      // primeira opção válida da nova espécie ao alternar o seletor.
+      categoria: categoriaPadrao(novaEspecie),
+    }));
+  };
+
   const handleCriarAnimal = async () => {
     if (!formData.brinco.trim()) {
-      addToast('Informe o brinco do animal antes de salvar.', 'error', 5000);
+      addToast('Informe o brinco (identificação) do animal antes de salvar.', 'error', 5000);
       return;
     }
 
-    const novoAnimal = {
-      id: Date.now().toString(),
-      brinco: formData.brinco.trim(),
-      raca: formData.raca.trim(),
-      sexo: formData.sexo === 'M' ? 'Macho' : formData.sexo === 'F' ? 'Fêmea' : (formData.sexo || ''),
-      dataNascimento: formData.data_nascimento || '',
-      categoria:
-        formData.categoria === 'bezerro'
-          ? 'Bezerro'
-          : formData.categoria === 'novilha'
-          ? 'Novilha'
-          : formData.categoria === 'vaca'
-          ? 'Vaca'
-          : formData.categoria === 'touro'
-          ? 'Touro'
-          : formData.categoria === 'boi'
-          ? 'Boi'
-          : formData.categoria || '',
-      especie: formData.especie,
-      peso: formData.peso_atual || '',
-      lote: formData.lote || '',
-      pasto: formData.pasto || '',
-      criadoEm: new Date().toISOString(),
-    };
+    if (especieConfig.nomeObrigatorio && !formData.nome.trim()) {
+      addToast(`Informe o nome do ${especieConfig.label.toLowerCase()} antes de salvar.`, 'error', 5000);
+      return;
+    }
 
     setSaving(true);
 
     try {
-      const pesoNumerico = novoAnimal.peso ? Number(novoAnimal.peso) : undefined;
+      const pesoNumerico = formData.peso_atual ? Number(formData.peso_atual) : undefined;
       const savedAnimal = await saveAnimalToSupabase({
-        id: novoAnimal.id,
-        brinco: novoAnimal.brinco,
-        raca: novoAnimal.raca,
+        brinco: formData.brinco.trim(),
+        nome: formData.nome.trim() || undefined,
+        especie: formData.especie,
+        raca: formData.raca.trim(),
         sexo: formData.sexo,
-        data_nascimento: novoAnimal.dataNascimento,
+        data_nascimento: formData.data_nascimento,
         categoria: formData.categoria,
         peso_atual: Number.isFinite(pesoNumerico) ? pesoNumerico : undefined,
-        lote: novoAnimal.lote,
-        pasto: novoAnimal.pasto,
+        lote: formData.lote,
+        pasto: formData.pasto,
       });
 
-      if (typeof window !== 'undefined') {
-        const existentes = JSON.parse(localStorage.getItem('animais') || '[]');
-        localStorage.setItem('animais', JSON.stringify([...existentes, novoAnimal]));
+      // Gera o calendário de vacinação recomendado para a espécie/categoria
+      const agendamentos = VaccinationScheduler.generateSchedule({
+        id: savedAnimal.id,
+        brinco: savedAnimal.brinco,
+        sexo: formData.sexo,
+        dataNascimento: formData.data_nascimento,
+        categoria: formData.categoria,
+        especie: formData.especie,
+      });
 
-        const agendamentos = VaccinationScheduler.generateSchedule({
-          id: novoAnimal.id,
-          brinco: novoAnimal.brinco,
-          sexo: formData.sexo,
-          dataNascimento: novoAnimal.dataNascimento,
-          categoria: formData.categoria,
-          especie: formData.especie,
-        });
-
-        const vacinacoesExistentes = JSON.parse(localStorage.getItem('vacinacoes') || '[]');
-        const vacinacoesAtualizadas = [
-          ...vacinacoesExistentes,
-          ...agendamentos.map((item) => ({
-            id: item.id,
-            animalId: item.animalId,
-            animalBrinco: item.animalBrinco,
+      if (agendamentos.length > 0) {
+        const { error: vacError } = await supabase.from('vacinacoes').insert(
+          agendamentos.map((item) => ({
+            animal_id: savedAnimal.id,
             vacina: item.nome,
-            lote: '',
-            dataAplicacao: item.status === 'aplicada' ? item.dataPrevista : '',
-            dataVencimento: item.dataPrevista,
-            responsavel: 'Automático',
-            observacoes: item.observacao || item.dose,
-            status: item.status === 'aplicada' ? 'aplicada' : 'pendente',
-            criadoEm: new Date().toISOString(),
+            data: item.status === 'aplicada' ? item.dataPrevista : item.dataPrevista,
+            dose: item.dose || null,
+            veterinario: 'Automático',
+            proxima_dose: item.status === 'aplicada' ? null : item.dataPrevista,
           })),
-        ];
-        localStorage.setItem('vacinacoes', JSON.stringify(vacinacoesAtualizadas));
+        );
+        if (vacError) {
+          console.warn('Não foi possível gravar o calendário de vacinação automático:', vacError);
+        }
       }
 
-      const mappedAnimal = {
-        id: savedAnimal.id,
-        fazenda_id: savedAnimal.fazenda_id || '',
-        brinco: savedAnimal.brinco || '',
-        raca: savedAnimal.raca || '',
-        sexo: savedAnimal.sexo === 'M' || savedAnimal.sexo === 'F' ? savedAnimal.sexo : '',
-        data_nascimento: savedAnimal.data_nascimento || '',
-        peso_atual: savedAnimal.peso_atual ? Number(savedAnimal.peso_atual) : undefined,
-        lote: savedAnimal.lote || '',
-        pasto: savedAnimal.pasto || '',
-        categoria: (savedAnimal.categoria || '').toLowerCase(),
-        foto_url: savedAnimal.foto_url || null,
-        ativo: savedAnimal.ativo ?? true,
-        created_at: savedAnimal.created_at || new Date().toISOString(),
-        updated_at: savedAnimal.updated_at || new Date().toISOString(),
-      } as Animal;
-
-      setAnimais((prev) => [mappedAnimal, ...prev]);
+      setAnimais((prev) => [savedAnimal, ...prev]);
       setShowModal(false);
-      setFormData({
-        brinco: '',
-        raca: '',
-        sexo: 'M',
-        data_nascimento: '',
-        categoria: 'bezerro',
-        especie: 'bovino',
-        lote: '',
-        pasto: '',
-        peso_atual: '',
-      });
-      addToast(`Animal ${novoAnimal.brinco} cadastrado com sucesso.`, 'success', 4000);
+      setFormData(formInicial);
+      addToast(`${especieConfig.label} ${savedAnimal.brinco} cadastrado com sucesso.`, 'success', 4000);
       notificarDashboard();
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Não foi possível salvar o animal.';
@@ -207,13 +153,29 @@ export default function AnimaisPage() {
     }
   };
 
+  // Categorias exibidas no filtro dependem da espécie selecionada no filtro
+  const categoriasFiltro = useMemo(() => {
+    if (!filtroEspecie) {
+      // sem espécie selecionada: mostra a união de todas as categorias
+      const todas = new Map<string, string>();
+      ESPECIE_OPTIONS.forEach(({ value }) => {
+        getEspecieConfig(value).categorias.forEach((c) => todas.set(c.value, c.label));
+      });
+      return Array.from(todas, ([value, label]) => ({ value, label }));
+    }
+    return getEspecieConfig(filtroEspecie).categorias;
+  }, [filtroEspecie]);
+
   const animaisFiltrados = animais.filter((animal) => {
+    const termo = search.toLowerCase().trim();
     const matchSearch =
-      animal.brinco.toLowerCase().includes(search.toLowerCase()) ||
-      animal.raca?.toLowerCase().includes(search.toLowerCase());
-    const matchCategoria =
-      filtroCategoria === '' || animal.categoria === filtroCategoria;
-    return matchSearch && matchCategoria;
+      !termo ||
+      animal.brinco?.toLowerCase().includes(termo) ||
+      animal.nome?.toLowerCase().includes(termo) ||
+      animal.raca?.toLowerCase().includes(termo);
+    const matchEspecie = filtroEspecie === '' || animal.especie === filtroEspecie;
+    const matchCategoria = filtroCategoria === '' || animal.categoria === filtroCategoria;
+    return matchSearch && matchEspecie && matchCategoria;
   });
 
   if (loading) {
@@ -225,7 +187,7 @@ export default function AnimaisPage() {
       {/* Header */}
       <PageHeader
         title="Animais"
-        description="Gerencie todos os animais da fazenda"
+        description="Gerencie todos os animais da fazenda, de qualquer espécie"
         action={
           <Button variant="primary" onClick={() => setShowModal(true)}>
             + Novo Animal
@@ -235,13 +197,33 @@ export default function AnimaisPage() {
 
       {/* Filtros */}
       <Card className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Input
-            label="Buscar por brinco ou raça"
-            placeholder="Ex: 001, Nelore"
+            label="Buscar por nome, brinco ou raça"
+            placeholder="Ex: Trovão, 001, Nelore"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Espécie
+            </label>
+            <select
+              value={filtroEspecie}
+              onChange={(e) => {
+                setFiltroEspecie(e.target.value);
+                setFiltroCategoria('');
+              }}
+              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
+            >
+              <option value="">Todas</option>
+              {ESPECIE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.emoji} {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-text-secondary mb-2">
               Categoria
@@ -252,11 +234,11 @@ export default function AnimaisPage() {
               className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
             >
               <option value="">Todas</option>
-              <option value="bezerro">Bezerro</option>
-              <option value="novilha">Novilha</option>
-              <option value="vaca">Vaca</option>
-              <option value="touro">Touro</option>
-              <option value="boi">Boi</option>
+              {categoriasFiltro.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -266,7 +248,7 @@ export default function AnimaisPage() {
       {animaisFiltrados.length === 0 ? (
         <EmptyState
           icon="🐄"
-          title={search || filtroCategoria ? 'Nenhum animal encontrado' : 'Nenhum animal cadastrado'}
+          title={search || filtroCategoria || filtroEspecie ? 'Nenhum animal encontrado' : 'Nenhum animal cadastrado'}
           description="Comece cadastrando seu primeiro animal"
           action={{
             label: '+ Novo Animal',
@@ -280,10 +262,29 @@ export default function AnimaisPage() {
             keyExtractor={(animal) => animal.id}
             columns={[
               {
-                key: 'brinco',
-                label: 'Brinco',
+                key: 'especie',
+                label: 'Espécie',
+                render: (value) => {
+                  const cfg = getEspecieConfig(value as string);
+                  return (
+                    <span className="text-sm text-text-secondary">
+                      {cfg.emoji} {cfg.label}
+                    </span>
+                  );
+                },
+              },
+              {
+                key: 'nome',
+                label: 'Nome',
                 render: (value) => (
-                  <span className="font-semibold text-text-primary">{value}</span>
+                  <span className="font-semibold text-text-primary">{value || '-'}</span>
+                ),
+              },
+              {
+                key: 'brinco',
+                label: 'Brinco / ID',
+                render: (value) => (
+                  <span className="text-text-secondary">{value}</span>
                 ),
               },
               {
@@ -294,18 +295,11 @@ export default function AnimaisPage() {
               {
                 key: 'categoria',
                 label: 'Categoria',
-                render: (value) => (
-                  <Badge
-                    label={value || 'N/A'}
-                    variant={
-                      value === 'vaca'
-                        ? 'success'
-                        : value === 'touro'
-                          ? 'warning'
-                          : 'info'
-                    }
-                  />
-                ),
+                render: (value, row) => {
+                  const cfg = getEspecieConfig(row.especie);
+                  const label = cfg.categorias.find((c) => c.value === value)?.label || value || 'N/A';
+                  return <Badge label={label} variant="info" />;
+                },
               },
               {
                 key: 'peso_atual',
@@ -339,7 +333,7 @@ export default function AnimaisPage() {
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title="Novo Animal"
+        title={`Novo ${especieConfig.label}`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setShowModal(false)}>
@@ -352,54 +346,61 @@ export default function AnimaisPage() {
         }
       >
         <div className="space-y-4">
-          <Input
-            label="Brinco"
-            placeholder="Ex: 001"
-            value={formData.brinco}
-            onChange={(e) =>
-              setFormData({ ...formData, brinco: e.target.value })
-            }
-          />
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Espécie
+            </label>
+            <select
+              value={formData.especie}
+              onChange={(e) => handleEspecieChange(e.target.value as Especie)}
+              className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
+            >
+              {ESPECIE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.emoji} {opt.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-text-muted mt-1">
+              O restante do formulário se ajusta automaticamente para {especieConfig.labelPlural.toLowerCase()}.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label={especieConfig.identificadorLabel}
+              placeholder={especieConfig.identificadorPlaceholder}
+              value={formData.brinco}
+              onChange={(e) => setFormData({ ...formData, brinco: e.target.value })}
+            />
+            <Input
+              label={`Nome${especieConfig.nomeObrigatorio ? '' : ' (opcional)'}`}
+              placeholder={especieConfig.nomePlaceholder}
+              value={formData.nome}
+              onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+            />
+          </div>
+          {especieConfig.nomeObrigatorio && (
+            <p className="text-xs text-text-muted -mt-2">
+              Com o nome preenchido, você poderá localizar este {especieConfig.label.toLowerCase()} diretamente pelo nome na busca.
+            </p>
+          )}
+
           <Input
             label="Raça"
-            placeholder="Ex: Nelore, Angus"
+            placeholder="Ex: Nelore, Angus, Mangalarga"
             value={formData.raca}
-            onChange={(e) =>
-              setFormData({ ...formData, raca: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, raca: e.target.value })}
           />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                Espécie
-              </label>
-              <select
-                value={formData.especie}
-                onChange={(e) =>
-                  setFormData({ ...formData, especie: e.target.value as typeof formData.especie })
-                }
-                className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary focus:ring-2 focus:ring-brand-DEFAULT focus:border-brand-DEFAULT"
-              >
-                <option value="bovino">Bovino</option>
-                <option value="equino">Equino</option>
-                <option value="ovino">Ovino</option>
-                <option value="caprino">Caprino</option>
-                <option value="suino">Suíno</option>
-                <option value="ave">Ave</option>
-              </select>
-            </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
                 Sexo
               </label>
               <select
                 value={formData.sexo}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    sexo: e.target.value as Sexo,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, sexo: e.target.value as Sexo })}
                 className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
               >
                 <option value="M">Macho</option>
@@ -410,14 +411,10 @@ export default function AnimaisPage() {
               label="Data de Nascimento"
               type="date"
               value={formData.data_nascimento}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  data_nascimento: e.target.value,
-                })
-              }
+              onChange={(e) => setFormData({ ...formData, data_nascimento: e.target.value })}
             />
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
@@ -425,19 +422,14 @@ export default function AnimaisPage() {
               </label>
               <select
                 value={formData.categoria}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    categoria: e.target.value as Categoria,
-                  })
-                }
+                onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
                 className="w-full px-4 py-2 border border-bg-border rounded-lg bg-bg-elevated text-text-primary"
               >
-                <option value="bezerro">Bezerro</option>
-                <option value="novilha">Novilha</option>
-                <option value="vaca">Vaca</option>
-                <option value="touro">Touro</option>
-                <option value="boi">Boi</option>
+                {especieConfig.categorias.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
             </div>
             <Input
@@ -445,27 +437,22 @@ export default function AnimaisPage() {
               type="number"
               placeholder="Ex: 250"
               value={formData.peso_atual}
-              onChange={(e) =>
-                setFormData({ ...formData, peso_atual: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, peso_atual: e.target.value })}
             />
           </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Lote"
               placeholder="Ex: Lote A"
               value={formData.lote}
-              onChange={(e) =>
-                setFormData({ ...formData, lote: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, lote: e.target.value })}
             />
             <Input
               label="Pasto"
               placeholder="Ex: Pasto 1"
               value={formData.pasto}
-              onChange={(e) =>
-                setFormData({ ...formData, pasto: e.target.value })
-              }
+              onChange={(e) => setFormData({ ...formData, pasto: e.target.value })}
             />
           </div>
         </div>

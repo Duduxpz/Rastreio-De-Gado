@@ -4,6 +4,17 @@ import { supabase } from '../lib/supabase';
 
 const router = Router();
 
+const ESPECIES_VALIDAS = ['bovino', 'equino', 'ovino', 'caprino', 'suino', 'ave'] as const;
+
+const CATEGORIAS_POR_ESPECIE: Record<string, string[]> = {
+  bovino: ['bezerro', 'novilha', 'vaca', 'touro', 'boi', 'outro'],
+  equino: ['potro', 'potranca', 'egua', 'garanhao', 'castrado', 'outro'],
+  ovino: ['cordeiro', 'borrega', 'ovelha', 'carneiro', 'outro'],
+  caprino: ['cabrito', 'caprina', 'cabra', 'bode', 'outro'],
+  suino: ['leitao', 'marra', 'porca', 'cachaco', 'outro'],
+  ave: ['pintainho', 'frango', 'poedeira', 'matriz', 'reprodutor', 'outro'],
+};
+
 // GET /api/animais
 router.get('/', authMiddleware, async (req: AuthRequest, res) => {
   try {
@@ -54,8 +65,22 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
       errors.push('O sexo deve ser M ou F.');
     }
 
-    if (body?.categoria && !['bezerro', 'novilha', 'vaca', 'touro', 'boi', 'outro'].includes(String(body.categoria))) {
-      errors.push('A categoria informada é inválida.');
+    const especie = ESPECIES_VALIDAS.includes(body?.especie) ? String(body.especie) : 'bovino';
+    if (body?.especie && !ESPECIES_VALIDAS.includes(body.especie)) {
+      errors.push('A espécie informada é inválida.');
+    }
+
+    // Cavalos (e demais espécies onde o nome é o principal identificador)
+    // precisam de um nome preenchido para permitir a busca por nome.
+    if (especie === 'equino' && (!body?.nome || String(body.nome).trim() === '')) {
+      errors.push('Informe o nome do animal (obrigatório para equinos).');
+    }
+
+    if (body?.categoria) {
+      const categoriasValidas = CATEGORIAS_POR_ESPECIE[especie] || CATEGORIAS_POR_ESPECIE.bovino;
+      if (!categoriasValidas.includes(String(body.categoria))) {
+        errors.push('A categoria informada é inválida para a espécie selecionada.');
+      }
     }
 
     if (body?.peso_atual !== undefined && body?.peso_atual !== null && Number.isNaN(Number(body.peso_atual))) {
@@ -70,6 +95,8 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
       id: body?.id || crypto.randomUUID(),
       fazenda_id: req.fazendaId,
       brinco: String(body.brinco).trim(),
+      nome: body?.nome ? String(body.nome).trim() : null,
+      especie,
       raca: body?.raca ?? null,
       sexo: body?.sexo ?? null,
       data_nascimento: body?.data_nascimento ?? null,
