@@ -36,7 +36,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-medium text-text-muted uppercase tracking-widest mb-1">
             Visão geral
@@ -185,7 +185,7 @@ export default function DashboardPage() {
         <p className="text-xs font-medium text-text-muted uppercase tracking-widest mb-3">
           Ações rápidas
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <QuickAction
             href="/dashboard/animais"
             icon={Sprout}
