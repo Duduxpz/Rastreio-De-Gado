@@ -1,4 +1,5 @@
 import { getSessionToken, supabase } from '@/lib/supabase';
+import { getBackendUrl } from '@/lib/backend';
 import type { Animal } from '@/types';
 
 export async function createDefaultFarmForUser(userId: string, nomeFazenda = 'Minha Fazenda') {
@@ -79,17 +80,7 @@ export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_at
     updated_at: new Date().toISOString(),
   };
 
-  // Normaliza a URL da API para cobrir casos como ':3001' ou 'localhost:3001'
-  const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || '';
-  function normalizeApiUrl(u: string) {
-    const trimmed = (u || '').trim();
-    if (!trimmed) return 'http://localhost:3001';
-    if (trimmed.startsWith(':')) return `http://localhost${trimmed}`;
-    if (/^https?:\/\//.test(trimmed)) return trimmed;
-    return `http://${trimmed}`;
-  }
-
-  const apiUrl = normalizeApiUrl(rawApiUrl);
+  const apiUrl = getBackendUrl();
 
   const response = await fetch(`${apiUrl}/api/animais`, {
     method: 'POST',

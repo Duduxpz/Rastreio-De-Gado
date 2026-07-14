@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getBackendUrl } from '@/lib/backend';
 import { getSessionToken } from '@/lib/supabase';
 import type { Recommendation, RecommendationMetrics, Prioridade, RecommendationStatus } from '@/types';
 
@@ -31,7 +32,7 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
       if (filters?.limit) params.append('limite', String(filters.limit));
       if (filters?.offset) params.append('offset', String(filters.offset));
 
-      const response = await fetch(`/api/recommendations?${params}`, {
+      const response = await fetch(`${getBackendUrl()}/api/recommendations?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -58,7 +59,7 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
     try {
       const token = await getSessionToken();
       if (!token) throw new Error('No session token');
-      const response = await fetch('/api/recommendations/metrics', {
+      const response = await fetch(`${getBackendUrl()}/api/recommendations/metrics`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -81,8 +82,10 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
     status: 'RECONHECIDA' | 'RESOLVIDA'
   ): Promise<void> => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/recommendations/${id}`, {
+      const token = await getSessionToken();
+      if (!token) throw new Error('No session token');
+
+      const response = await fetch(`${getBackendUrl()}/api/recommendations/${id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -95,11 +98,9 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
 
       const { success } = await response.json();
       if (success) {
-        // Atualizar localmente
         setRecommendations((prev) =>
           prev.map((r) => (r.id === id ? { ...r, status } : r))
         );
-        // Atualizar métricas
         await fetchMetrics();
         return;
       }
@@ -112,7 +113,7 @@ export function useRecommendations(filters?: UseRecommendationsFilters) {
     try {
       const token = await getSessionToken();
       if (!token) throw new Error('No session token');
-      const response = await fetch('/api/recommendations/generate', {
+      const response = await fetch(`${getBackendUrl()}/api/recommendations/generate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getBackendUrl } from '@/lib/backend';
 import { getSessionToken } from '@/lib/supabase';
 import { AnalyticsSnapshot, AnalyticsStats } from '@/types';
 
@@ -202,7 +203,7 @@ export function useAlerts(filters?: {
       if (filters?.lida !== undefined) params.append('lida', String(filters.lida));
       if (filters?.limit) params.append('limite', String(filters.limit));
 
-      const response = await fetch(`/api/alerts?${params}`, {
+      const response = await fetch(`${getBackendUrl()}/api/alerts?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -224,7 +225,7 @@ export function useAlerts(filters?: {
     try {
       const token = await getSessionToken();
       if (!token) throw new Error('No session token');
-      const response = await fetch(`/api/alerts/${id}`, {
+      const response = await fetch(`${getBackendUrl()}/api/alerts/${id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,

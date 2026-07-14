@@ -17,9 +17,10 @@ Este arquivo documenta passo a passo a configuração mínima necessária no Ver
 - Adicione as seguintes variáveis em Settings → Environment Variables → Production:
   - `NEXT_PUBLIC_SUPABASE_URL` = https://SEU_PROJETO.supabase.co
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = <sua-chave-publishable>
-  - `API_URL` = https://sua-api.exemplo (se usado)
+  - `API_URL` = https://sua-api.exemplo  # URL pública do backend Express/REST
 
   Observações:
+  - `API_URL` ou `NEXT_PUBLIC_API_URL` deve apontar para o backend `rastreio-api` hospedado.
   - Não commit these keys into source. Use o painel do Vercel ou `vercel env`.
   - `NEXT_PUBLIC_` é exposto no cliente — use apenas keys publishable.
 
