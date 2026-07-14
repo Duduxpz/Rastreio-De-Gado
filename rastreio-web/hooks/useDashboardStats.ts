@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getBackendUrl } from '@/lib/backend';
 import { supabase } from '@/lib/supabase';
 
 export interface DashboardIssue {
@@ -182,7 +183,7 @@ export const useDashboardStats = (): DashboardStats => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const apiUrl = getBackendUrl();
         if (!token) return;
 
         const response = await fetch(`${apiUrl}/api/analytics/overview?days=30`, {
