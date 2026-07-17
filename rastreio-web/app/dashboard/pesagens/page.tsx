@@ -44,7 +44,8 @@ export default function PesagensPage() {
 
       const { data: animaisData } = await supabase
         .from('animais')
-        .select('*');
+        .select('*')
+        .eq('ativo', true);
 
       setAnimaisOpcoes(animaisData || []);
 
@@ -63,13 +64,30 @@ export default function PesagensPage() {
 
   const handleSalvar = async () => {
     try {
-      const { error } = await supabase.from('pesagens').insert([
-        {
-          ...form,
-          peso: parseFloat(form.peso),
-        },
-      ]);
+      const peso = Number.parseFloat(form.peso);
+      if (!form.animal_id || !Number.isFinite(peso)) {
+        return;
+      }
+
+      const { data: pesagemCriada, error } = await supabase
+        .from('pesagens')
+        .insert([
+          {
+            animal_id: form.animal_id,
+            peso,
+            data: form.data || null,
+            observacao: form.observacao || null,
+          },
+        ])
+        .select()
+        .single();
+
       if (error) throw error;
+
+      await supabase
+        .from('animais')
+        .update({ peso_atual: peso })
+        .eq('id', form.animal_id);
 
       setShowModal(false);
       setForm({
@@ -78,16 +96,27 @@ export default function PesagensPage() {
         data: '',
         observacao: '',
       });
-      carregarDados();
+      if (pesagemCriada) {
+        setPesagens((prev) => [
+          {
+            ...pesagemCriada,
+            animal: animaisOpcoes.find((a) => a.id === form.animal_id),
+          },
+          ...prev,
+        ]);
+      }
+      notificarDashboard();
+      await carregarDados();
     } catch (error) {
       console.error('Erro:', error);
     }
   };
 
   const pesagensFiltrads = pesagens.filter((p) => {
+    const termo = search.toLowerCase();
     return (
-      p.animal?.brinco.toLowerCase().includes(search.toLowerCase()) ||
-      p.animal?.raca?.toLowerCase().includes(search.toLowerCase())
+      p.animal?.brinco?.toLowerCase().includes(termo) ||
+      p.animal?.raca?.toLowerCase().includes(termo)
     );
   });
 

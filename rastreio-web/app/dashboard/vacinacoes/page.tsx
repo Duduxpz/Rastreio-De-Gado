@@ -11,6 +11,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
+import { supabase } from '@/lib/supabase';
 import { AlertCircle, CalendarClock, CheckCircle2, Clock3, Syringe } from 'lucide-react';
 
 interface VacinacaoLocal {
@@ -35,19 +36,42 @@ export default function VacinacoesPag() {
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    carregarVacinacoes();
+    void carregarVacinacoes();
   }, []);
 
-  const carregarVacinacoes = () => {
+  const carregarVacinacoes = async () => {
     try {
       setLoading(true);
-      const stored = typeof window !== 'undefined' ? localStorage.getItem('vacinacoes') : null;
-      if (stored) {
-        const dados = JSON.parse(stored);
-        setVacinacoes(dados || []);
-      } else {
-        setVacinacoes([]);
-      }
+      const { data: vacinacoesData, error: vacError } = await supabase
+        .from('vacinacoes')
+        .select('*')
+        .order('data', { ascending: false });
+
+      if (vacError) throw vacError;
+
+      const { data: animaisData, error: animalError } = await supabase
+        .from('animais')
+        .select('*')
+        .eq('ativo', true);
+
+      if (animalError) throw animalError;
+
+      const animaisMap = new Map((animaisData || []).map((animal) => [animal.id, animal]));
+      const dados = (vacinacoesData || []).map((v) => ({
+        id: v.id as string,
+        animalId: (v.animal_id as string) || '',
+        animalBrinco: (animaisMap.get(v.animal_id as string)?.brinco as string) || '',
+        vacina: (v.vacina as string) || '',
+        lote: (v.dose as string) || '',
+        dataAplicacao: (v.data as string) || '',
+        dataVencimento: (v.proxima_dose as string) || '',
+        responsavel: (v.veterinario as string) || '',
+        observacoes: '',
+        status: ((v.data as string) ? 'aplicada' : 'pendente') as 'pendente' | 'aplicada',
+        criadoEm: (v.created_at as string) || new Date().toISOString(),
+      }));
+
+      setVacinacoes(dados);
     } catch (error) {
       console.error('Erro ao carregar vacinações:', error);
       setVacinacoes([]);
@@ -69,19 +93,59 @@ export default function VacinacoesPag() {
   const atrasadas = vacinacoesFiltradas.filter((v) => v.status !== 'aplicada' && v.dataVencimento && new Date(v.dataVencimento) < new Date()).length;
   const proximas = vacinacoesFiltradas.filter((v) => v.status !== 'aplicada' && v.dataVencimento).slice(0, 3);
 
-  const handleExcluir = (id: string) => {
-    const atualizadas = vacinacoes.filter((v) => v.id !== id);
-    localStorage.setItem('vacinacoes', JSON.stringify(atualizadas));
-    setVacinacoes(atualizadas);
-    notificarDashboard();
+  const handleExcluir = async (id: string) => {
+    try {
+      await supabase.from('vacinacoes').delete().eq('id', id);
+      setVacinacoes((prev) => prev.filter((v) => v.id !== id));
+      notificarDashboard();
+    } catch (error) {
+      console.error('Erro ao excluir vacinação:', error);
+    }
   };
 
-  const handleSalvarVacinacao = (novaVacinacao: VacinacaoLocal) => {
-    const atualizadas = [...vacinacoes, novaVacinacao];
-    localStorage.setItem('vacinacoes', JSON.stringify(atualizadas));
-    setVacinacoes(atualizadas);
-    setShowModal(false);
-    notificarDashboard();
+  const handleSalvarVacinacao = async (novaVacinacao: VacinacaoLocal) => {
+    try {
+      const { data, error } = await supabase
+        .from('vacinacoes')
+        .insert([
+          {
+            animal_id: novaVacinacao.animalId,
+            vacina: novaVacinacao.vacina,
+            data: novaVacinacao.dataAplicacao || null,
+            dose: novaVacinacao.lote || null,
+            veterinario: novaVacinacao.responsavel || null,
+            proxima_dose: novaVacinacao.dataVencimento || null,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setShowModal(false);
+      await carregarVacinacoes();
+      notificarDashboard();
+      if (data) {
+        setVacinacoes((prev) => [
+          {
+            id: data.id as string,
+            animalId: data.animal_id as string,
+            animalBrinco: novaVacinacao.animalBrinco,
+            vacina: data.vacina as string,
+            lote: data.dose as string,
+            dataAplicacao: data.data as string,
+            dataVencimento: data.proxima_dose as string,
+            responsavel: data.veterinario as string,
+            observacoes: '',
+            status: (data.data ? 'aplicada' : 'pendente') as 'pendente' | 'aplicada',
+            criadoEm: (data.created_at as string) || new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar vacinação:', error);
+    }
   };
 
   if (loading) {
@@ -90,7 +154,6 @@ export default function VacinacoesPag() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <PageHeader
         title="Vacinações"
         description="Registros sanitários do rebanho"
@@ -165,7 +228,6 @@ export default function VacinacoesPag() {
         </Card>
       )}
 
-      {/* Tabela */}
       {vacinacoesFiltradas.length === 0 ? (
         <EmptyState
           icon={Syringe}
@@ -224,7 +286,7 @@ export default function VacinacoesPag() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleExcluir(v.id);
+                            void handleExcluir(v.id);
                           }}
                           className="text-lg hover:opacity-70 transition"
                           title="Excluir"
@@ -241,7 +303,6 @@ export default function VacinacoesPag() {
         </Card>
       )}
 
-      {/* Modal */}
       <ModalNovaVacinacao
         isOpen={showModal}
         onClose={() => setShowModal(false)}
@@ -270,23 +331,29 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
     status: 'pendente' as 'pendente' | 'aplicada',
   });
 
-  const [animais, setAnimais] = useState<any[]>([]);
+  const [animais, setAnimais] = useState<Array<{ id: string; brinco?: string }>>([]);
 
   useEffect(() => {
-    if (isOpen) {
-      const stored = localStorage.getItem('animais');
-      if (stored) {
-        const dados = JSON.parse(stored);
-        setAnimais(dados || []);
-      }
-    }
+    if (!isOpen) return;
+
+    const carregarAnimais = async () => {
+      const { data } = await supabase.from('animais').select('*').eq('ativo', true);
+      setAnimais((data || []) as Array<{ id: string; brinco?: string }>);
+    };
+
+    void carregarAnimais();
   }, [isOpen]);
 
   const handleSalvar = () => {
+    const animal = animais.find((item) => item.id === form.animalId) || animais.find((item) => item.brinco === form.animalBrinco);
+    if (!animal) {
+      return;
+    }
+
     const novaVacinacao: VacinacaoLocal = {
       id: Date.now().toString(),
-      animalId: form.animalId || '',
-      animalBrinco: form.animalBrinco || '',
+      animalId: animal.id,
+      animalBrinco: animal.brinco || form.animalBrinco,
       vacina: form.vacina || '',
       lote: form.lote || '',
       dataAplicacao: form.dataAplicacao || '',
@@ -329,14 +396,13 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
       }
     >
       <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-        {/* Animal - Dropdown ou Input */}
         <div>
           <label className="block text-sm font-medium text-gray-200 mb-2">Animal (Brinco)</label>
           {animais.length > 0 ? (
             <select
               value={form.animalId}
               onChange={(e) => {
-                const animal = animais.find((a) => a.id === e.target.value);
+                const animal = animais.find((item) => item.id === e.target.value);
                 setForm({
                   ...form,
                   animalId: e.target.value,
@@ -346,9 +412,9 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
               className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
             >
               <option value="">Selecionar animal...</option>
-              {animais.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.brinco || `Animal #${a.id}`}
+              {animais.map((animal) => (
+                <option key={animal.id} value={animal.id}>
+                  {animal.brinco || `Animal #${animal.id}`}
                 </option>
               ))}
             </select>
@@ -361,7 +427,6 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
           )}
         </div>
 
-        {/* Vacina */}
         <Input
           label="Vacina"
           placeholder="Ex: Aftosa, Brucelose"
@@ -369,7 +434,6 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
           onChange={(e) => setForm({ ...form, vacina: e.target.value })}
         />
 
-        {/* Lote e Status */}
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="Lote da Vacina"
@@ -392,7 +456,6 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
           </div>
         </div>
 
-        {/* Datas */}
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="Data de Aplicação"
@@ -408,7 +471,6 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
           />
         </div>
 
-        {/* Responsável */}
         <Input
           label="Responsável"
           placeholder="Ex: Dr. João"
@@ -416,7 +478,6 @@ function ModalNovaVacinacao({ isOpen, onClose, onSalvar }: ModalNovaVacinacaoPro
           onChange={(e) => setForm({ ...form, responsavel: e.target.value })}
         />
 
-        {/* Observações */}
         <div>
           <label className="block text-sm font-medium text-gray-200 mb-2">Observações</label>
           <textarea

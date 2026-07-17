@@ -1,6 +1,12 @@
-import { useState, useEffect } from 'react';
-import { getBackendUrl } from '@/lib/backend';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+
+const toDateSafe = (value: unknown) => {
+  if (!value) return null;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
 
 export interface DashboardIssue {
   key: string;
@@ -103,150 +109,106 @@ export const useDashboardStats = (): DashboardStats => {
     return 'estavel';
   };
 
-  const calcularStats = () => {
-    const animaisStr = typeof window !== 'undefined' ? localStorage.getItem('animais') : null;
-    const animais = animaisStr ? JSON.parse(animaisStr) : [];
-    const totalAnimais = animais.length;
+  const calcularStats = async () => {
+    if (typeof window === 'undefined') return;
 
-    const vacinacoesStr = typeof window !== 'undefined' ? localStorage.getItem('vacinacoes') : null;
-    const vacinacoes = vacinacoesStr ? JSON.parse(vacinacoesStr) : [];
-    const vacinacoesPendentes = vacinacoes.filter(
-      (v: any) => !v.dataAplicacao || v.status === 'pendente'
-    ).length;
+    try {
+      const [{ data: animaisData, error: animaisError }, { data: vacinacoesData, error: vacinacoesError }, { data: pesagensData, error: pesagensError }] = await Promise.all([
+        supabase.from('animais').select('*').eq('ativo', true),
+        supabase.from('vacinacoes').select('*'),
+        supabase.from('pesagens').select('*'),
+      ]);
 
-    const pesagensStr = typeof window !== 'undefined' ? localStorage.getItem('pesagens') : null;
-    const pesagens = pesagensStr ? JSON.parse(pesagensStr) : [];
-    const trintaDiasAtras = new Date();
-    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
-    const pesagens30Dias = pesagens.filter((p: any) => p.data && new Date(p.data) >= trintaDiasAtras).length;
+      if (animaisError || vacinacoesError || pesagensError) {
+        throw new Error('Não foi possível carregar os dados do dashboard.');
+      }
 
-    const totalRegistros = totalAnimais + vacinacoes.length + pesagens.length;
+      const animais = (animaisData || []) as Array<{ id: string; peso_atual?: number; raca?: string; lote?: string }>;
+      const vacinacoes = (vacinacoesData || []) as Array<{ data?: string }>;
+      const pesagens = (pesagensData || []) as Array<{ animal_id?: string; data?: string }>;
+      const totalAnimais = animais.length;
+      const trintaDiasAtras = new Date();
+      trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+      const pesagens30Dias = pesagens.filter((p) => {
+        const d = toDateSafe(p.data);
+        return d ? d >= trintaDiasAtras : false;
+      }).length;
+      const vacinacoesPendentes = vacinacoes.filter((v) => {
+        if (!v.data) return true;
+        return String(v.data).trim() === '';
+      }).length;
+      const animaisSemPesagemRecente = animais.filter((animal) => {
+        return !pesagens.some((p) => {
+          if (p.animal_id !== animal.id) return false;
+          const d = toDateSafe(p.data);
+          return d ? d >= trintaDiasAtras : false;
+        });
+      }).length;
 
-    const avgPeso = (() => {
-      let sum = 0;
-      let count = 0;
-      animais.forEach((a: any) => {
-        if (a.peso_atual) {
-          sum += Number(a.peso_atual);
-          count += 1;
-        }
+      const totalRegistros = totalAnimais + vacinacoes.length + pesagens.length;
+      const avgPeso = (() => {
+        let sum = 0;
+        let count = 0;
+        animais.forEach((animal) => {
+          if (animal.peso_atual) {
+            sum += Number(animal.peso_atual);
+            count += 1;
+          }
+        });
+        return count ? +(sum / count).toFixed(2) : null;
+      })();
+      const missingCadastro = animais.filter((animal) => !animal.raca || !animal.lote).length;
+      const rebanhoScore = computeScore(totalAnimais, animaisSemPesagemRecente, vacinacoesPendentes, missingCadastro);
+      const rebanhoStatus = getRebanhoStatus(rebanhoScore);
+      const snapshotAnterior = JSON.parse(localStorage.getItem('dashboard_snapshot') || '{}');
+      const tendenciaAnimais = calcTendencia(totalAnimais, snapshotAnterior.totalAnimais);
+      const tendenciaVacinacoes = calcTendencia(vacinacoesPendentes, snapshotAnterior.vacinacoesPendentes);
+      const tendenciaPesagens = calcTendencia(pesagens30Dias, snapshotAnterior.pesagens30Dias);
+      const tendenciaRegistros = calcTendencia(totalRegistros, snapshotAnterior.totalRegistros);
+
+      localStorage.setItem('dashboard_snapshot', JSON.stringify({
+        totalAnimais,
+        vacinacoesPendentes,
+        pesagens30Dias,
+        totalRegistros,
+      }));
+
+      setStats({
+        totalAnimais,
+        vacinacoesPendentes,
+        pesagens30Dias,
+        totalRegistros,
+        avgPeso,
+        rebanhoScore,
+        rebanhoStatus,
+        topIssues: getTopIssues(animaisSemPesagemRecente, vacinacoesPendentes, totalAnimais),
+        tendenciaAnimais,
+        tendenciaVacinacoes,
+        tendenciaPesagens,
+        tendenciaRegistros,
       });
-      return count ? +(sum / count).toFixed(2) : null;
-    })();
-
-    const missingCadastro = animais.filter((a: any) => !a.raca || !a.lote).length;
-    const rebanhoScore = computeScore(totalAnimais, totalAnimais - pesagens30Dias, vacinacoesPendentes, missingCadastro);
-    const rebanhoStatus = getRebanhoStatus(rebanhoScore);
-
-    const snapshotAnterior = typeof window !== 'undefined'
-      ? JSON.parse(localStorage.getItem('dashboard_snapshot') || '{}')
-      : {};
-
-    const tendenciaAnimais = calcTendencia(totalAnimais, snapshotAnterior.totalAnimais);
-    const tendenciaVacinacoes = calcTendencia(vacinacoesPendentes, snapshotAnterior.vacinacoesPendentes);
-    const tendenciaPesagens = calcTendencia(pesagens30Dias, snapshotAnterior.pesagens30Dias);
-    const tendenciaRegistros = calcTendencia(totalRegistros, snapshotAnterior.totalRegistros);
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(
-        'dashboard_snapshot',
-        JSON.stringify({
-          totalAnimais,
-          vacinacoesPendentes,
-          pesagens30Dias,
-          totalRegistros,
-        })
-      );
+    } catch {
+      setStats((current) => current);
     }
-
-    setStats({
-      totalAnimais,
-      vacinacoesPendentes,
-      pesagens30Dias,
-      totalRegistros,
-      avgPeso,
-      rebanhoScore,
-      rebanhoStatus,
-      topIssues: getTopIssues(totalAnimais - pesagens30Dias, vacinacoesPendentes, totalAnimais),
-      tendenciaAnimais,
-      tendenciaVacinacoes,
-      tendenciaPesagens,
-      tendenciaRegistros,
-    });
   };
 
   useEffect(() => {
-    calcularStats();
+    void calcularStats();
 
-    const fetchServerStats = async () => {
-      if (typeof window === 'undefined') return;
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        const apiUrl = getBackendUrl();
-        if (!token) return;
-
-        const response = await fetch(`${apiUrl}/api/analytics/overview?days=30`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) return;
-        const json = await response.json();
-
-        const animaisStr = localStorage.getItem('animais');
-        const animais = animaisStr ? JSON.parse(animaisStr) : [];
-        const totalAnimais = json.total_animais ?? animais.length;
-
-        const pesagensStr = localStorage.getItem('pesagens');
-        const pesagens = pesagensStr ? JSON.parse(pesagensStr) : [];
-        const trintaDiasAtras = new Date();
-        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
-        const pesagens30Dias = pesagens.filter((p: any) => p.data && new Date(p.data) >= trintaDiasAtras).length;
-
-        const totalRegistros = totalAnimais + pesagens.length + (localStorage.getItem('vacinacoes') ? JSON.parse(localStorage.getItem('vacinacoes') || '[]').length : 0);
-        const avgPeso = json.avg_peso ?? null;
-        const rebanhoScore = json.rebanho_score ?? computeScore(totalAnimais, json.animais_sem_pesagem_recente ?? 0, json.vacinacoes_pendentes ?? 0, animais.filter((a: any) => !a.raca || !a.lote).length);
-        const topIssues = (json.top_issues as DashboardIssue[] | undefined)
-          ?? getTopIssues(json.animais_sem_pesagem_recente ?? 0, json.vacinacoes_pendentes ?? 0, totalAnimais);
-
-        const snapshotAnterior = localStorage.getItem('dashboard_snapshot')
-          ? JSON.parse(localStorage.getItem('dashboard_snapshot') || '{}')
-          : {};
-
-        setStats({
-          totalAnimais,
-          vacinacoesPendentes: json.vacinacoes_pendentes ?? 0,
-          pesagens30Dias,
-          totalRegistros,
-          avgPeso,
-          rebanhoScore,
-          rebanhoStatus: getRebanhoStatus(rebanhoScore),
-          topIssues,
-          tendenciaAnimais: calcTendencia(totalAnimais, snapshotAnterior.totalAnimais),
-          tendenciaVacinacoes: calcTendencia(json.vacinacoes_pendentes ?? 0, snapshotAnterior.vacinacoesPendentes),
-          tendenciaPesagens: calcTendencia(pesagens30Dias, snapshotAnterior.pesagens30Dias),
-          tendenciaRegistros: calcTendencia(totalRegistros, snapshotAnterior.totalRegistros),
-        });
-
-        localStorage.setItem('dashboard_snapshot', JSON.stringify({
-          totalAnimais,
-          vacinacoesPendentes: json.vacinacoes_pendentes ?? 0,
-          pesagens30Dias,
-          totalRegistros,
-        }));
-      } catch (error) {
-        // fallback to local stats
-      }
+    const handleRefresh = () => {
+      void calcularStats();
     };
 
-    fetchServerStats();
+    window.addEventListener('dashboard:refresh', handleRefresh);
+    window.addEventListener('storage', handleRefresh);
 
-    const handleStorageChange = () => calcularStats();
-    window.addEventListener('storage', handleStorageChange);
-
-    const interval = setInterval(calcularStats, 2000);
+    const interval = window.setInterval(() => {
+      void calcularStats();
+    }, 5000);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('dashboard:refresh', handleRefresh);
+      window.removeEventListener('storage', handleRefresh);
       clearInterval(interval);
     };
   }, []);

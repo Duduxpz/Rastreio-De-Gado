@@ -84,15 +84,24 @@ export default function AnimalDetailPage() {
 
   const handleAddVacinacao = async () => {
     try {
-      const { error } = await supabase.from('vacinacoes').insert([
-        {
-          animal_id: animalId,
-          ...vacForm,
-        },
-      ]);
+      const { data, error } = await supabase
+        .from('vacinacoes')
+        .insert([
+          {
+            animal_id: animalId,
+            vacina: vacForm.vacina,
+            data: vacForm.data || null,
+            dose: vacForm.dose || null,
+            veterinario: vacForm.veterinario || null,
+            proxima_dose: vacForm.proxima_dose || null,
+          },
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
 
+      setVacinacoes((prev) => (data ? [data, ...prev] : prev));
       setShowVacModal(false);
       setVacForm({
         vacina: '',
@@ -102,7 +111,6 @@ export default function AnimalDetailPage() {
         proxima_dose: '',
       });
       notificarDashboard();
-      carregarDados();
     } catch (error) {
       console.error('Erro ao adicionar vacinação:', error);
     }
@@ -110,23 +118,33 @@ export default function AnimalDetailPage() {
 
   const handleAddPesagem = async () => {
     try {
-      const { peso, ...rest } = pesForm;
-      const { error } = await supabase.from('pesagens').insert([
-        {
-          animal_id: animalId,
-          ...rest,
-          peso: parseFloat(peso),
-        },
-      ]);
+      const peso = Number.parseFloat(pesForm.peso);
+      if (!Number.isFinite(peso)) {
+        throw new Error('Informe um peso válido.');
+      }
+
+      const { data, error } = await supabase
+        .from('pesagens')
+        .insert([
+          {
+            animal_id: animalId,
+            peso,
+            data: pesForm.data || null,
+            observacao: pesForm.observacao || null,
+          },
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
 
-      // Atualizar peso atual no animal
       await supabase
         .from('animais')
-        .update({ peso_atual: parseFloat(pesForm.peso) })
+        .update({ peso_atual: peso })
         .eq('id', animalId);
 
+      setPesagens((prev) => (data ? [data, ...prev] : prev));
+      setAnimal((prev) => (prev ? { ...prev, peso_atual: peso } : prev));
       setShowPesModal(false);
       setPesForm({
         peso: '',
@@ -134,7 +152,6 @@ export default function AnimalDetailPage() {
         observacao: '',
       });
       notificarDashboard();
-      carregarDados();
     } catch (error) {
       console.error('Erro ao adicionar pesagem:', error);
     }

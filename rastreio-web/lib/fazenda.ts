@@ -56,11 +56,6 @@ export async function getCurrentFarmId() {
 }
 
 export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_atual'> & { id?: string; brinco: string; nome?: string; categoria?: string; raca?: string; sexo?: string; data_nascimento?: string; peso_atual?: number | string; lote?: string; pasto?: string; especie?: string }) {
-  const token = await getSessionToken();
-  if (!token) {
-    throw new Error('Sessão expirada. Faça login novamente para continuar.');
-  }
-
   const pesoString = typeof input.peso_atual === 'string' ? input.peso_atual.trim() : '';
   const pesoInformado = input.peso_atual !== undefined && input.peso_atual !== null && pesoString !== '';
   const pesoValue = pesoInformado ? Number(pesoString) : null;
@@ -80,20 +75,44 @@ export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_at
     updated_at: new Date().toISOString(),
   };
 
-  const apiUrl = getBackendUrl();
+  const token = await getSessionToken();
+  let apiUrl = '';
 
-  const response = await fetch(`${apiUrl}/api/animais`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  try {
+    apiUrl = getBackendUrl();
+  } catch {
+    apiUrl = '';
+  }
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data?.error || 'Não foi possível salvar o animal.');
+  if (token && apiUrl) {
+    try {
+      const response = await fetch(`${apiUrl}/api/animais`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        return data as Animal;
+      }
+    } catch (error) {
+      console.warn('Falha ao salvar animal via API, usando fallback do Supabase:', error);
+    }
+  }
+
+  const fazendaId = await getCurrentFarmId();
+  const { data, error } = await supabase
+    .from('animais')
+    .insert({ ...payload, fazenda_id: fazendaId })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(error.message || 'Não foi possível salvar o animal.');
   }
 
   return data as Animal;
