@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/Modal';
 import { notificarDashboard } from '@/lib/notificarDashboard';
 import { VaccinationScheduler } from '@/lib/vaccination-scheduler';
 import { saveAnimalToSupabase } from '@/lib/fazenda';
+
 import { ESPECIE_OPTIONS, getEspecieConfig, categoriaPadrao, type Especie } from '@/lib/especies';
 import { useToast } from '@/hooks/useToast';
 import { Toast } from '@/components/ui/Toast';
@@ -30,6 +31,22 @@ const formInicial = {
   lote: '',
   pasto: '',
   peso_atual: '',
+  quantidade: '1',
+};
+
+const gerarBrincos = (base: string, quantidade: number) => {
+  const valorBase = base.trim();
+  if (!valorBase) return [];
+  const match = valorBase.match(/^(.*?)(\d+)([^\d]*)$/);
+  if (match && quantidade > 1) {
+    const prefixo = match[1];
+    const numero = Number(match[2]);
+    const sufixo = match[3] ?? '';
+    const width = match[2].length;
+    return Array.from({ length: quantidade }, (_, index) => `${prefixo}${String(numero + index).padStart(width, '0')}${sufixo}`);
+  }
+
+  return Array.from({ length: quantidade }, (_, index) => `${valorBase}${quantidade > 1 && index > 0 ? `-${index + 1}` : ''}`);
 };
 
 export default function AnimaisPage() {
@@ -86,7 +103,13 @@ export default function AnimaisPage() {
   };
 
   const handleCriarAnimal = async () => {
-    if (!formData.brinco.trim()) {
+    const quantidade = Math.max(1, Math.min(200, Number.parseInt(String(formData.quantidade || '1'), 10) || 1));
+    const brincoBase = formData.brinco.trim() || (quantidade > 1 ? 'ANIMAL' : '');
+    const raca = formData.raca.trim();
+
+
+
+    if (!brincoBase) {
       addToast('Informe o brinco (identificação) do animal antes de salvar.', 'error', 5000);
       return;
     }
@@ -100,49 +123,59 @@ export default function AnimaisPage() {
 
     try {
       const pesoNumerico = formData.peso_atual ? Number(formData.peso_atual) : undefined;
-      const savedAnimal = await saveAnimalToSupabase({
-        brinco: formData.brinco.trim(),
-        nome: formData.nome.trim() || undefined,
-        especie: formData.especie,
-        raca: formData.raca.trim(),
-        sexo: formData.sexo,
-        data_nascimento: formData.data_nascimento,
-        categoria: formData.categoria,
-        peso_atual: Number.isFinite(pesoNumerico) ? pesoNumerico : undefined,
-        lote: formData.lote,
-        pasto: formData.pasto,
-      });
+      const brincos = gerarBrincos(brincoBase, quantidade);
+      const animaisCriados: Animal[] = [];
 
-      // Gera o calendário de vacinação recomendado para a espécie/categoria
-      const agendamentos = VaccinationScheduler.generateSchedule({
-        id: savedAnimal.id,
-        brinco: savedAnimal.brinco,
-        sexo: formData.sexo,
-        dataNascimento: formData.data_nascimento,
-        categoria: formData.categoria,
-        especie: formData.especie,
-      });
+      for (const brinco of brincos) {
+        const savedAnimal = await saveAnimalToSupabase({
+          brinco,
+          nome: formData.nome.trim() || undefined,
+          especie: formData.especie,
+          raca,
 
-      if (agendamentos.length > 0) {
-        const { error: vacError } = await supabase.from('vacinacoes').insert(
-          agendamentos.map((item) => ({
+          sexo: formData.sexo,
+          data_nascimento: formData.data_nascimento,
+          categoria: formData.categoria,
+          peso_atual: Number.isFinite(pesoNumerico) ? pesoNumerico : undefined,
+          lote: formData.lote,
+          pasto: formData.pasto,
+        });
+
+        const agendamentos = VaccinationScheduler.generateSchedule({
+          id: savedAnimal.id,
+          brinco: savedAnimal.brinco,
+          sexo: formData.sexo,
+          dataNascimento: formData.data_nascimento,
+          categoria: formData.categoria,
+          especie: formData.especie,
+        });
+
+        if (agendamentos.length > 0) {
+          const vacinacoesInsert = agendamentos.map((item) => ({
             animal_id: savedAnimal.id,
             vacina: item.nome,
-            data: item.status === 'aplicada' ? item.dataPrevista : item.dataPrevista,
+            data: null,
             dose: item.dose || null,
             veterinario: 'Automático',
-            proxima_dose: item.status === 'aplicada' ? null : item.dataPrevista,
-          })),
-        );
-        if (vacError) {
-          console.warn('Não foi possível gravar o calendário de vacinação automático:', vacError);
+            proxima_dose: item.dataPrevista,
+          }));
+
+          await supabase.from('vacinacoes').insert(vacinacoesInsert);
         }
+
+        animaisCriados.push(savedAnimal);
       }
 
-      setAnimais((prev) => [savedAnimal, ...prev]);
+      await carregarAnimais();
       setShowModal(false);
-      setFormData(formInicial);
-      addToast(`${especieConfig.label} ${savedAnimal.brinco} cadastrado com sucesso.`, 'success', 4000);
+      setFormData({ ...formInicial, quantidade: '1' });
+      addToast(
+        quantidade > 1
+          ? `${quantidade} ${especieConfig.labelPlural.toLowerCase()} cadastrados com sucesso.`
+          : `${especieConfig.label} ${animaisCriados[0]?.brinco || brincoBase} cadastrado com sucesso.`,
+        'success',
+        4000,
+      );
       notificarDashboard();
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Não foi possível salvar o animal.';
@@ -386,12 +419,22 @@ export default function AnimaisPage() {
             </p>
           )}
 
-          <Input
-            label="Raça"
-            placeholder="Ex: Nelore, Angus, Mangalarga"
-            value={formData.raca}
-            onChange={(e) => setFormData({ ...formData, raca: e.target.value })}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Quantidade"
+              type="number"
+              min="1"
+              placeholder="Ex: 60"
+              value={formData.quantidade}
+              onChange={(e) => setFormData({ ...formData, quantidade: e.target.value })}
+            />
+            <Input
+              label="Raça"
+              placeholder="Ex: Nelore, Angus, Mangalarga"
+              value={formData.raca}
+              onChange={(e) => setFormData({ ...formData, raca: e.target.value })}
+            />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

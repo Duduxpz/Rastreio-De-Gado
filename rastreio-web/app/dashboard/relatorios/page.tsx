@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase';
 import { gerarAlertas, type Alerta } from '@/utils/gerarAlertas';
 
 export default function RelatoriosPage() {
@@ -16,19 +17,41 @@ export default function RelatoriosPage() {
   const relatorioRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    carregarDados();
+    void carregarDados();
+
+    const onRefresh = () => {
+      void carregarDados();
+    };
+
+    window.addEventListener('dashboard:refresh', onRefresh);
+    window.addEventListener('storage', onRefresh);
+
+    return () => {
+      window.removeEventListener('dashboard:refresh', onRefresh);
+      window.removeEventListener('storage', onRefresh);
+    };
   }, []);
 
-  const carregarDados = () => {
-    const a = JSON.parse(localStorage.getItem('animais') || '[]');
-    const v = JSON.parse(localStorage.getItem('vacinacoes') || '[]');
-    const p = JSON.parse(localStorage.getItem('pesagens') || '[]');
+  const carregarDados = async () => {
+    setLoading(true);
+    try {
+      const [{ data: animaisData }, { data: vacinacoesData }, { data: pesagensData }] = await Promise.all([
+        supabase.from('animais').select('*').eq('ativo', true),
+        supabase.from('vacinacoes').select('*'),
+        supabase.from('pesagens').select('*'),
+      ]);
 
-    setAnimais(a);
-    setVacinacoes(v);
-    setPesagens(p);
-    setAlertas(gerarAlertas(a, v, p));
-    setLoading(false);
+      const a = (animaisData || []) as any[];
+      const v = (vacinacoesData || []) as any[];
+      const p = (pesagensData || []) as any[];
+
+      setAnimais(a);
+      setVacinacoes(v);
+      setPesagens(p);
+      setAlertas(gerarAlertas(a, v, p));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const totalAplicadas = vacinacoes.filter(
