@@ -178,9 +178,18 @@ export default function AnimaisPage() {
       );
       notificarDashboard();
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Não foi possível salvar o animal.';
+      let message = 'Não foi possível salvar o animal.';
+      
+      if (e instanceof Error) {
+        message = e.message;
+      }
+      
       addToast(message, 'error', 6000);
-      console.error('Erro salvando animal no banco:', e);
+      console.error('Erro salvando animal:', {
+        error: e,
+        formData,
+        quantidade,
+      });
     } finally {
       setSaving(false);
     }

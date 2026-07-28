@@ -59,6 +59,12 @@ export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_at
   const pesoString = typeof input.peso_atual === 'string' ? input.peso_atual.trim() : '';
   const pesoInformado = input.peso_atual !== undefined && input.peso_atual !== null && pesoString !== '';
   const pesoValue = pesoInformado ? Number(pesoString) : null;
+
+  // Validação de peso
+  if (pesoInformado && Number.isNaN(pesoValue)) {
+    throw new Error('Peso deve ser um número válido.');
+  }
+
   const payload = {
     id: input.id || crypto.randomUUID(),
     brinco: input.brinco,
@@ -81,9 +87,11 @@ export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_at
   try {
     apiUrl = getBackendUrl();
   } catch {
+    // Se não conseguir obter URL da API, usaremos fallback Supabase
     apiUrl = '';
   }
 
+  // Tentar via API em primeiro lugar
   if (token && apiUrl) {
     try {
       const response = await fetch(`${apiUrl}/api/animais`, {
@@ -96,24 +104,61 @@ export async function saveAnimalToSupabase(input: Omit<Partial<Animal>, 'peso_at
       });
 
       const data = await response.json().catch(() => ({}));
-      if (response.ok) {
+
+      if (response.ok && data?.id) {
         return data as Animal;
       }
+
+      // Se a resposta foi um erro HTTP, extrair mensagem detalhada
+      if (!response.ok) {
+        const errorMessage = data?.error || `Erro ${response.status} ao comunicar com a API`;
+        // Não falhar aqui, tentar fallback Supabase
+        console.warn('API returned error, trying Supabase fallback:', {
+          status: response.status,
+          error: errorMessage,
+        });
+      }
     } catch (error) {
-      console.warn('Falha ao salvar animal via API, usando fallback do Supabase:', error);
+      // Erro de rede/timeout, tentar fallback
+      console.warn(
+        'Falha ao salvar animal via API (possível erro de rede), usando fallback do Supabase:',
+        error instanceof Error ? error.message : error
+      );
     }
   }
 
-  const fazendaId = await getCurrentFarmId();
-  const { data, error } = await supabase
-    .from('animais')
-    .insert({ ...payload, fazenda_id: fazendaId })
-    .select()
-    .single();
+  // Fallback: tentar salvar direto no Supabase
+  try {
+    const fazendaId = await getCurrentFarmId();
+    const { data, error } = await supabase
+      .from('animais')
+      .insert({ ...payload, fazenda_id: fazendaId })
+      .select()
+      .single();
 
-  if (error) {
-    throw new Error(error.message || 'Não foi possível salvar o animal.');
+    if (error) {
+      // Erro específico: migração não aplicada (coluna não existe)
+      if (error.code === '42703') {
+        throw new Error(
+          'Erro de configuração: banco de dados não contém os campos necessários. ' +
+          'Entre em contato com o suporte (código: MIGRATION_NOT_APPLIED).'
+        );
+      }
+
+      // Erro de constraint única
+      if (error.code === '23505') {
+        throw new Error(`Já existe um animal com o brinco "${payload.brinco}" nesta fazenda.`);
+      }
+
+      // Erro genérico
+      throw new Error(error.message || 'Não foi possível salvar o animal no banco de dados.');
+    }
+
+    return data as Animal;
+  } catch (fallbackError) {
+    // Re-lançar com contexto
+    const message =
+      fallbackError instanceof Error ? fallbackError.message : 'Não foi possível salvar o animal.';
+    throw new Error(message);
   }
-
-  return data as Animal;
 }

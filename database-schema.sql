@@ -9,23 +9,43 @@ CREATE TABLE fazendas (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Tabela de animais
+-- Tabela de animais (com suporte a múltiplas espécies via migration 004)
 CREATE TABLE animais (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   fazenda_id UUID REFERENCES fazendas(id) ON DELETE CASCADE,
   brinco TEXT NOT NULL,
+  nome TEXT,
+  especie TEXT NOT NULL DEFAULT 'bovino',
   raca TEXT,
   sexo TEXT CHECK (sexo IN ('M','F')),
   data_nascimento DATE,
   peso_atual NUMERIC(6,2),
   lote TEXT,
   pasto TEXT,
-  categoria TEXT CHECK (categoria IN ('bezerro','novilha','vaca','touro','boi','outro')),
+  categoria TEXT,
   foto_url TEXT,
   ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (fazenda_id, brinco)
+  UNIQUE (fazenda_id, brinco),
+  CONSTRAINT animais_especie_check CHECK (especie IN ('bovino', 'equino', 'ovino', 'caprino', 'suino', 'ave')),
+  CONSTRAINT animais_categoria_check CHECK (
+    categoria IS NULL OR (
+      (especie = 'bovino' AND categoria IN ('bezerro','novilha','vaca','touro','boi','outro')) OR
+      (especie = 'equino' AND categoria IN ('potro','potranca','egua','garanhao','castrado','outro')) OR
+      (especie = 'ovino'  AND categoria IN ('cordeiro','borrega','ovelha','carneiro','outro')) OR
+      (especie = 'caprino' AND categoria IN ('cabrito','caprina','cabra','bode','outro')) OR
+      (especie = 'suino'  AND categoria IN ('leitao','marra','porca','cachaco','outro')) OR
+      (especie = 'ave'    AND categoria IN ('pintainho','frango','poedeira','matriz','reprodutor','outro'))
+    )
+  )
 );
+
+-- Índices para performance (migração 004)
+CREATE INDEX IF NOT EXISTS idx_animais_especie ON animais(especie);
+CREATE INDEX IF NOT EXISTS idx_animais_nome ON animais(nome);
+CREATE INDEX IF NOT EXISTS idx_animais_created_at ON animais(created_at);
+CREATE INDEX IF NOT EXISTS idx_animais_fazenda_id ON animais(fazenda_id);
 
 -- Tabela de vacinações
 CREATE TABLE vacinacoes (
