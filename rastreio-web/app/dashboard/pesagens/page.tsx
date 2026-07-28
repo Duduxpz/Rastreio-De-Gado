@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
+import { notificarDashboard } from '@/lib/notificarDashboard';
 import type { Pesagem, Animal } from '@/types';
 import { Scale } from 'lucide-react';
 
